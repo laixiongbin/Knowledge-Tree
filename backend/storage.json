@@ -1,0 +1,459 @@
+{
+  "神经网络": {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "authors": "Rumelhart, D.E., Hinton, G.E., Williams, R.J.",
+                "children": [],
+                "name": "Gradient Descent and Backpropagation",
+                "quote": "A method for optimizing neural networks by computing gradients through the chain rule.",
+                "type": "paper",
+                "url": "https://arxiv.org/abs/1910.14266",
+                "year": "1986"
+              },
+              {
+                "authors": "Magnus, J.R., Neudecker, H.",
+                "children": [],
+                "name": "Matrix Calculus for Deep Learning",
+                "quote": "Foundational techniques for computing derivatives in neural networks.",
+                "type": "paper",
+                "url": "https://arxiv.org/pdf/1802.01528",
+                "year": "1999"
+              }
+            ],
+            "name": "线性代数与优化",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "Shannon, C.E.",
+                "children": [],
+                "name": "A Mathematical Theory of Communication",
+                "quote": "Introduces entropy and information theory concepts relevant to neural networks.",
+                "type": "paper",
+                "url": "https://arxiv.org/abs/2107.06420",
+                "year": "1948"
+              },
+              {
+                "authors": "Bishop, C.M.",
+                "children": [],
+                "name": "Pattern Recognition and Machine Learning",
+                "quote": "Covers probabilistic models and Bayesian methods underlying neural networks.",
+                "type": "paper",
+                "url": "https://arxiv.org/abs/1802.06091",
+                "year": "2006"
+              }
+            ],
+            "name": "概率论与信息论",
+            "type": "concept"
+          }
+        ],
+        "name": "前置理论基础",
+        "type": "concept"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "authors": "Rosenblatt, F.",
+                "children": [],
+                "name": "Multilayer Perceptrons",
+                "quote": "Early work on feedforward networks with hidden layers.",
+                "type": "paper",
+                "url": "https://arxiv.org/abs/cond-mat/0101132",
+                "year": "1962"
+              },
+              {
+                "authors": "Rumelhart, D.E., Hinton, G.E., Williams, R.J.",
+                "children": [],
+                "name": "Learning representations by back-propagating errors",
+                "quote": "Key paper popularizing backpropagation for training neural networks.",
+                "type": "paper",
+                "url": "https://doi.org/10.1038/323533a0",
+                "year": "1986"
+              }
+            ],
+            "name": "前馈神经网络",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "LeCun, Y., Bottou, L., Bengio, Y., Haffner, P.",
+                "children": [],
+                "name": "Gradient-Based Learning Applied to Document Recognition",
+                "quote": "Introduces LeNet-5, a pioneering convolutional neural network.",
+                "type": "paper",
+                "url": "https://hal.science/hal-03926082/document",
+                "year": "1998"
+              },
+              {
+                "authors": "Krizhevsky, A., Sutskever, I., Hinton, G.E.",
+                "children": [],
+                "name": "ImageNet Classification with Deep Convolutional Neural Networks",
+                "quote": "AlexNet breakthrough in image classification using deep CNNs.",
+                "type": "paper",
+                "url": "http://dl.acm.org/ft_gateway.cfm?id=3065386&type=pdf",
+                "year": "2012"
+              }
+            ],
+            "name": "卷积神经网络",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "Hochreiter, S., Schmidhuber, J.",
+                "children": [],
+                "name": "Learning long-term dependencies with gradient descent is difficult",
+                "quote": "Discusses challenges in training RNNs and introduces LSTM.",
+                "type": "paper",
+                "url": "https://www.semanticscholar.org/paper/d0be39ee052d246ae99c082a565aba25b811be2d",
+                "year": "1997"
+              },
+              {
+                "authors": "Sutskever, I., Vinyals, O., Le, Q.V.",
+                "children": [],
+                "name": "Sequence to Sequence Learning with Neural Networks",
+                "quote": "Applies RNNs to machine translation tasks.",
+                "type": "paper",
+                "url": "https://arxiv.org/abs/1409.3215",
+                "year": "2014"
+              }
+            ],
+            "name": "循环神经网络",
+            "type": "concept"
+          }
+        ],
+        "name": "核心概念与验证",
+        "type": "concept"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "authors": "He, K., Zhang, X., Ren, S., Sun, J.",
+                "children": [],
+                "name": "Deep Residual Learning for Image Recognition",
+                "quote": "Introduces ResNet with skip connections for very deep networks.",
+                "type": "paper",
+                "url": "https://arxiv.org/abs/1512.03385",
+                "year": "2016"
+              },
+              {
+                "authors": "Redmon, J., Divvala, S., Girshick, R., Farhadi, A.",
+                "children": [],
+                "name": "You Only Look Once: Unified, Real-Time Object Detection",
+                "quote": "YOLO algorithm for fast object detection using CNNs.",
+                "type": "paper",
+                "url": "https://arxiv.org/abs/1506.02640",
+                "year": "2016"
+              }
+            ],
+            "name": "计算机视觉",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A.N., Kaiser, Ł., Polosukhin, I.",
+                "children": [],
+                "name": "Attention Is All You Need",
+                "quote": "Introduces the Transformer architecture, foundational for modern NLP.",
+                "type": "paper",
+                "url": "https://arxiv.org/abs/1706.03762",
+                "year": "2017"
+              },
+              {
+                "authors": "Devlin, J., Chang, M.-W., Lee, K., Toutanova, K.",
+                "children": [],
+                "name": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+                "quote": "A breakthrough in pre-trained language models.",
+                "type": "paper",
+                "url": "https://arxiv.org/abs/1810.04805",
+                "year": "2019"
+              }
+            ],
+            "name": "自然语言处理",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "Mnih, V., Kavukcuoglu, K., Silver, D., Rusu, A.A., Veness, J., Bellemare, M.G., Graves, A., Riedmiller, M., Fidjeland, A.K., Ostrovski, G., Petersen, S., Beattie, C., Sadik, A., Antonoglou, I., King, H., Kumaran, D., Wierstra, D., Legg, S., Hassabis, D.",
+                "children": [],
+                "name": "Human-level control through deep reinforcement learning",
+                "quote": "DQN algorithm combining deep learning with Q-learning.",
+                "type": "paper",
+                "url": "https://doi.org/10.1038/nature14236",
+                "year": "2015"
+              },
+              {
+                "authors": "Silver, D., Huang, A., Maddison, C.J., Guez, A., Sifre, L., van den Driessche, G., Schrittwieser, J., Antonoglou, I., Panneershelvam, V., Lanctot, M., Dieleman, S., Grewe, D., Nham, J., Kalchbrenner, N., Sutskever, I., Lillicrap, T., Leach, M., Kavukcuoglu, K., Graepel, T., Hassabis, D.",
+                "children": [],
+                "name": "Mastering the game of Go with deep neural networks and tree search",
+                "quote": "AlphaGo using neural networks for board game strategy.",
+                "type": "paper",
+                "url": "https://doi.org/10.1038/nature16961",
+                "year": "2016"
+              }
+            ],
+            "name": "强化学习",
+            "type": "concept"
+          }
+        ],
+        "name": "应用与前沿",
+        "type": "concept"
+      }
+    ],
+    "created_at": "2026-04-05 17:59:48",
+    "name": "神经网络",
+    "type": "concept",
+    "updated_at": "2026-04-05 17:59:48"
+  },
+  "生物学": {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "authors": "Lehninger, A.L., Nelson, D.L., Cox, M.M.",
+                "children": [],
+                "name": "生物化学原理",
+                "quote": "生物化学是研究生物体内化学过程的学科，为理解生命活动提供分子基础。",
+                "type": "paper",
+                "url": "",
+                "year": "2017"
+              },
+              {
+                "authors": "Clayden, J., Greeves, N., Warren, S.",
+                "children": [],
+                "name": "有机化学在生物学中的应用",
+                "quote": "有机化学为生物大分子如蛋白质和核酸的结构与功能研究提供关键工具。",
+                "type": "paper",
+                "url": "",
+                "year": "2012"
+              }
+            ],
+            "name": "化学基础",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "Nelson, P.",
+                "children": [],
+                "name": "生物物理学基础",
+                "quote": "生物物理学应用物理原理研究生物系统，如分子力学和能量转换。",
+                "type": "paper",
+                "url": "",
+                "year": "2014"
+              }
+            ],
+            "name": "物理基础",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "Zar, J.H.",
+                "children": [],
+                "name": "生物统计学方法",
+                "quote": "生物统计学为生物学实验设计、数据分析和推断提供数学框架。",
+                "type": "paper",
+                "url": "",
+                "year": "2010"
+              },
+              {
+                "authors": "Murray, J.D.",
+                "children": [],
+                "name": "计算生物学中的数学模型",
+                "quote": "数学模型在模拟生物过程和系统生物学中发挥重要作用。",
+                "type": "paper",
+                "url": "",
+                "year": "2002"
+              }
+            ],
+            "name": "数学与统计基础",
+            "type": "concept"
+          }
+        ],
+        "name": "前置理论基础",
+        "type": "concept"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "authors": "Alberts, B., Johnson, A., Lewis, J., et al.",
+                    "children": [],
+                    "name": "细胞膜与运输机制",
+                    "quote": "细胞膜的结构和功能研究揭示了物质跨膜运输的分子机制。",
+                    "type": "paper",
+                    "url": "",
+                    "year": "2014"
+                  },
+                  {
+                    "authors": "Lodish, H., Berk, A., Zipursky, S.L., et al.",
+                    "children": [],
+                    "name": "细胞器功能与相互作用",
+                    "quote": "细胞器如线粒体和内质网在能量代谢和蛋白质合成中的角色。",
+                    "type": "paper",
+                    "url": "",
+                    "year": "2000"
+                  }
+                ],
+                "name": "细胞结构与功能",
+                "type": "concept"
+              }
+            ],
+            "name": "细胞生物学",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "Watson, J.D., Baker, T.A., Bell, S.P., et al.",
+                "children": [],
+                "name": "分子遗传学",
+                "quote": "分子遗传学探索DNA复制、转录和翻译的分子基础。",
+                "type": "paper",
+                "url": "http://rs.yiigle.com/CN231536200204/745973.htm",
+                "year": "2014"
+              },
+              {
+                "authors": "Hartl, D.L., Clark, A.G.",
+                "children": [],
+                "name": "群体遗传学",
+                "quote": "群体遗传学研究基因频率在种群中的变化和进化动力。",
+                "type": "paper",
+                "url": "http://rs.yiigle.com/CN113565200002/680553.htm",
+                "year": "2007"
+              }
+            ],
+            "name": "遗传学",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "Darwin, C.",
+                "children": [],
+                "name": "自然选择与适应",
+                "quote": "自然选择理论解释物种适应环境和性状演化的机制。",
+                "type": "paper",
+                "url": "",
+                "year": "1859"
+              },
+              {
+                "authors": "Felsenstein, J.",
+                "children": [],
+                "name": "系统发育学",
+                "quote": "系统发育学通过比较生物学数据重建物种间的进化关系。",
+                "type": "paper",
+                "url": "",
+                "year": "2004"
+              }
+            ],
+            "name": "进化生物学",
+            "type": "concept"
+          }
+        ],
+        "name": "核心概念与验证",
+        "type": "concept"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "authors": "Doudna, J.A., Charpentier, E.",
+                "children": [],
+                "name": "基因编辑技术",
+                "quote": "CRISPR-Cas9等基因编辑工具在遗传疾病治疗和农业改良中的应用。",
+                "type": "paper",
+                "url": "",
+                "year": "2014"
+              },
+              {
+                "authors": "Khalil, A.S., Collins, J.J.",
+                "children": [],
+                "name": "合成生物学",
+                "quote": "合成生物学设计并构建新的生物部件、设备和系统，用于工业和生产。",
+                "type": "paper",
+                "url": "",
+                "year": "2010"
+              }
+            ],
+            "name": "生物技术",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "Collins, F.S., Varmus, H.",
+                "children": [],
+                "name": "精准医疗",
+                "quote": "精准医疗基于个体基因组信息定制疾病预防和治疗策略。",
+                "type": "paper",
+                "url": "https://doaj.org/article/d42ffe6516f348ecb8a9fe67b77f3873",
+                "year": "2015"
+              },
+              {
+                "authors": "Rosenberg, S.A., Restifo, N.P.",
+                "children": [],
+                "name": "免疫疗法",
+                "quote": "免疫疗法利用免疫系统对抗癌症等疾病，如CAR-T细胞疗法。",
+                "type": "paper",
+                "url": "http://rs.yiigle.com/CN311962200206/743183.htm",
+                "year": "2015"
+              }
+            ],
+            "name": "医学应用",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "Wilson, E.O.",
+                "children": [],
+                "name": "生物多样性保护",
+                "quote": "生物多样性保护研究物种灭绝风险和生态系统恢复策略。",
+                "type": "paper",
+                "url": "",
+                "year": "2016"
+              },
+              {
+                "authors": "Parmesan, C., Yohe, G.",
+                "children": [],
+                "name": "气候变化生物学",
+                "quote": "气候变化生物学探讨全球变暖对物种分布和生态过程的影响。",
+                "type": "paper",
+                "url": "",
+                "year": "2003"
+              }
+            ],
+            "name": "环境与生态前沿",
+            "type": "concept"
+          }
+        ],
+        "name": "应用与前沿",
+        "type": "concept"
+      }
+    ],
+    "created_at": "2026-04-05 18:09:55",
+    "name": "生物学",
+    "type": "concept",
+    "updated_at": "2026-04-05 20:15:56"
+  }
+}

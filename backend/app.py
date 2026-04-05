@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
 import restore
+import paper_enrich
 from datetime import datetime
 import io
 
@@ -24,37 +25,81 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
+# DeepSeek json_object 模式要求：提示里必须出现英文 "json"，并给出示例，否则会长时间输出空白直至触顶 token。
+DEEPSEEK_SYSTEM_TREE = """你是知识树生成助手。请根据用户主题输出一个 json 对象（仅此一个 json，不要 Markdown）。
+结构规则：根与中间节点 type 均为 "concept"；仅最深层允许 "paper"，且 paper 的 children 必须为 []。
+同一父节点的 children 要么全是 concept（继续展开），要么全是 paper（结束分支），禁止混排。
+从根到任一 paper 的路径长度为 4 或 5 层（第1层根，第2层为三个固定分类名）。
+关于 paper 的 url：你没有联网检索能力。禁止编造或占位链接（禁止使用 example.com、test.com、placeholder、假 DOI 等）。不确定时 url 必须为空字符串 ""；服务端会按标题依次通过 arXiv、Semantic Scholar、OpenAlex 尝试补全可点击链接。
+EXAMPLE JSON OUTPUT（字段名必须一致，内容替换为用户主题）:
+{"name":"示例主题","type":"concept","children":[{"name":"前置理论基础","type":"concept","children":[{"name":"子主题","type":"concept","children":[{"name":"某论文","type":"paper","quote":"","url":"","authors":"","year":"2020","children":[]}]}]},{"name":"核心概念与验证","type":"concept","children":[]},{"name":"应用与前沿","type":"concept","children":[]}]}"""
+
+
 def call_deepseek(prompt):
-    """调用 DeepSeek API，返回知识树 JSON"""
+    """调用 DeepSeek API，返回 (知识树 dict 或 None, 错误说明或 None)。"""
+    if not DEEPSEEK_API_KEY or not str(DEEPSEEK_API_KEY).strip():
+        return None, "未配置 DEEPSEEK_API_KEY"
+
     payload = {
         "model": "deepseek-chat",
         "messages": [
-            {"role": "system", "content": "你是一个知识树生成助手。请根据用户输入的关键词，生成一个结构化的知识树，输出格式必须是严格的 JSON，包含 name, type, children 等字段。只返回 JSON，不要有任何额外说明。"},
-            {"role": "user", "content": prompt}
+            {"role": "system", "content": DEEPSEEK_SYSTEM_TREE},
+            {"role": "user", "content": prompt},
         ],
-        "temperature": 0.7,
-        "max_tokens": 2000,
-        "response_format": {"type": "json_object"}
+        "temperature": 0.5,
+        "max_tokens": 8192,
+        "response_format": {"type": "json_object"},
     }
     try:
-        response = requests.post(DEEPSEEK_ENDPOINT, headers=HEADERS, json=payload, timeout=30)
-        response.raise_for_status()
+        response = requests.post(
+            DEEPSEEK_ENDPOINT, headers=HEADERS, json=payload, timeout=120
+        )
+        if not response.ok:
+            snippet = (response.text or "")[:800]
+            print(f"DeepSeek HTTP {response.status_code}: {snippet}")
+            return None, f"上游接口 HTTP {response.status_code}"
+
         result = response.json()
-        content = result['choices'][0]['message']['content']
-        
+        choices = result.get("choices") or []
+        if not choices:
+            return None, "上游返回无 choices 字段"
+
+        choice0 = choices[0]
+        finish_reason = choice0.get("finish_reason")
+        msg = choice0.get("message") or {}
+        content = msg.get("content")
+        if content is None or not str(content).strip():
+            print(f"DeepSeek 空内容 finish_reason={finish_reason} raw={repr(result)[:500]}")
+            return None, f"模型返回空内容（finish_reason={finish_reason}）"
+
+        content = str(content).strip()
+
         try:
             tree_data = json.loads(content)
         except json.JSONDecodeError:
             import re
-            match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
+
+            match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content, re.IGNORECASE)
             if match:
-                tree_data = json.loads(match.group(1))
+                try:
+                    tree_data = json.loads(match.group(1).strip())
+                except json.JSONDecodeError as e:
+                    print(f"JSON 解析失败(代码块): {e}\n前300字: {content[:300]}")
+                    return None, "模型返回的 json 无法解析"
             else:
-                tree_data = json.loads(content)
-        return tree_data
-    except Exception as e:
+                print(f"JSON 解析失败: {content[:400]}")
+                return None, "模型返回的 json 无法解析"
+
+        if finish_reason == "length":
+            print("警告: finish_reason=length，输出可能被截断，若前端异常可适当缩小树规模")
+
+        return tree_data, None
+    except requests.RequestException as e:
         print(f"API 请求失败: {e}")
-        return None
+        return None, f"网络请求失败: {e}"
+    except (KeyError, TypeError, ValueError) as e:
+        print(f"API 响应异常: {e}")
+        return None, f"响应格式异常: {e}"
 
 @app.route('/generate', methods=['POST'])
 def generate_knowledge_tree():
@@ -64,24 +109,28 @@ def generate_knowledge_tree():
     if not keyword:
         return jsonify({'error': '请提供关键词'}), 400
 
-    prompt = f"""
-    请为关键词“{keyword}”生成一个知识树。结构要求：
-    - 根节点名称是关键词。
-    - 第一层子节点为三个分类：“前置理论基础”、“核心概念与验证”、“应用与前沿”。
-    - 每个分类下至少包含2-3个具体的知识点，每个知识点可以是论文节点或概念节点。
-    - 论文节点需要包含字段：name, type: "paper", quote, url, authors, year。
-    - 概念节点只需要 name 和 type: "concept"。
-    - 所有节点都必须有 name 和 type 字段，且 children 字段存在（即使为空数组）。
-    输出必须是严格的 JSON 格式，不要有任何注释。
-    """
-    tree_data = call_deepseek(prompt)
+    prompt = f"""请为主题「{keyword}」生成一棵完整知识树，输出为单个 json 对象（与 system 中的 EXAMPLE JSON OUTPUT 同一结构风格）。
+层数从根计：第1层根、第2层恰为「前置理论基础」「核心概念与验证」「应用与前沿」三个 concept。
+第3层每分类下 2～3 个 concept；不得在第3层出现 paper。
+从根到任一 paper 的路径总长须为 4 或 5：要么第3层 concept 下直接挂 2～3 个 paper（4 层）；要么第3层下再接一层 concept，其下再挂 1～3 个 paper（5 层）。同一父节点下 children 要么全 concept 要么全 paper。
+每篇 paper 含 name,type,quote,url,authors,year,children([])。为控制长度，每处 paper 列表最多 3 条。
+url 规则：勿填示例站；无把握则 url 留空 ""，服务端会按 arXiv → Semantic Scholar → OpenAlex 顺序补全链接。
+"""
+    tree_data, api_err = call_deepseek(prompt)
     if tree_data is None:
-        return jsonify({'error': '生成知识树失败，请稍后重试'}), 500
+        return jsonify(
+            {"error": "生成知识树失败，请稍后重试", "detail": api_err or "未知错误"}
+        ), 500
 
     if 'name' not in tree_data:
         tree_data['name'] = keyword
     if 'children' not in tree_data:
         tree_data['children'] = []
+
+    try:
+        paper_enrich.enrich_tree_with_literature(tree_data)
+    except Exception as e:
+        print(f"文献链接补全失败（已返回未补全的树）: {e}")
     
     tree_data['created_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     tree_data['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -92,8 +141,9 @@ def generate_knowledge_tree():
 def health():
     return jsonify({'status': 'ok'})
 
-# 保存API
-st = restore.JSONStorage('storage.json')
+# 保存 API：与 app.py 同目录，不依赖启动时的 cwd
+_STORAGE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'storage.json')
+st = restore.JSONStorage(_STORAGE_FILE)
 
 
 

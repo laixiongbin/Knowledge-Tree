@@ -54,6 +54,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    function findNodeByPath(path, treeNode, currentPath = "") {
+    const nodePath = currentPath ? `${currentPath}/${treeNode.name}` : treeNode.name;
+    if (nodePath === path) return treeNode;
+    if (treeNode.children) {
+        for (let child of treeNode.children) {
+            const found = findNodeByPath(path, child, nodePath);
+            if (found) return found;
+        }
+    }
+    return null;
+}
 
     // 显示节点详情
     function showNodeDetail(node) {

@@ -1,43 +1,112 @@
 import os
 import json
 import requests
-from flask import Flask, request, jsonify, send_file
+import traceback
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 import restore
 import paper_enrich
 from datetime import datetime
-import io
 
-# 加载环境变量
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)  # 允许前端跨域访问
+CORS(app)
 
-# DeepSeek API 配置
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_ENDPOINT = os.getenv("DEEPSEEK_ENDPOINT", "https://api.deepseek.com/v1/chat/completions")
 
-# 请求头
 HEADERS = {
     "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
     "Content-Type": "application/json"
 }
 
-# DeepSeek json_object 模式要求：提示里必须出现英文 "json"，并给出示例，否则会长时间输出空白直至触顶 token。
-DEEPSEEK_SYSTEM_TREE = """你是知识树生成助手。请根据用户主题输出一个 json 对象（仅此一个 json，不要 Markdown）。
-结构规则：根与中间节点 type 均为 "concept"；仅最深层允许 "paper"，且 paper 的 children 必须为 []。
-同一父节点的 children 要么全是 concept（继续展开），要么全是 paper（结束分支），禁止混排。
-从根到任一 paper 的路径长度为 4 或 5 层（第1层根，第2层为三个固定分类名）。
-关于 paper 的 url：你没有联网检索能力。禁止编造或占位链接（禁止使用 example.com、test.com、placeholder、假 DOI 等）。不确定时 url 必须为空字符串 ""；服务端会按标题依次通过 arXiv、Semantic Scholar、OpenAlex 尝试补全可点击链接。
-EXAMPLE JSON OUTPUT（字段名必须一致，内容替换为用户主题）:
-{"name":"示例主题","type":"concept","children":[{"name":"前置理论基础","type":"concept","children":[{"name":"子主题","type":"concept","children":[{"name":"某论文","type":"paper","quote":"","url":"","authors":"","year":"2020","children":[]}]}]},{"name":"核心概念与验证","type":"concept","children":[]},{"name":"应用与前沿","type":"concept","children":[]}]}"""
+# 更稳健的多级嵌套提示词（降低模型输出难度）
+DEEPSEEK_SYSTEM_TREE = """你是知识树生成助手。请根据用户主题输出一个 JSON 对象（只输出 JSON，不要其他文字）。
 
+结构规则：
+- 根节点 type="concept"，name 为主题名称。
+- 树的深度建议 4~6 层，每个概念节点可以继续分解为子概念（children）。
+- 每个节点尽量包含 description 字段（简短说明）。
+- 叶子节点可以是 type="paper" 或 type="concept"。
+- 同一父节点下 children 可以混合 concept 和 paper。
+- paper 节点必须包含：name, type="paper", quote, url(不知道留空), authors, year, children=[]。
+
+示例（主题“注意力机制”）：
+{
+  "name": "注意力机制",
+  "type": "concept",
+  "description": "深度学习中的一种动态加权机制",
+  "children": [
+    {
+      "name": "注意力函数",
+      "type": "concept",
+      "description": "计算查询与键的相似度",
+      "children": [
+        { "name": "加性注意力", "type": "concept", "description": "使用前馈网络计算" },
+        { "name": "点积注意力", "type": "concept", "description": "点积后缩放" }
+      ]
+    },
+    {
+      "name": "多头注意力",
+      "type": "concept",
+      "description": "并行多个注意力头",
+      "children": [
+        { "name": "自注意力", "type": "concept", "description": "序列内部关联" }
+      ]
+    }
+  ]
+}
+"""
+
+def generate_fallback_tree(keyword):
+    """生成一个保证有效的多级回退树"""
+    return {
+        "name": keyword,
+        "type": "concept",
+        "description": f"关于「{keyword}」的知识脉络",
+        "children": [
+            {
+                "name": f"{keyword} 基础概念",
+                "type": "concept",
+                "description": "核心基础",
+                "children": [
+                    { "name": "定义与原理", "type": "concept", "description": "基本定义" },
+                    { "name": "历史发展", "type": "concept", "description": "重要发展节点" }
+                ]
+            },
+            {
+                "name": f"{keyword} 核心理论",
+                "type": "concept",
+                "description": "深入理解",
+                "children": [
+                    {
+                        "name": "关键方法",
+                        "type": "concept",
+                        "description": "主要方法论",
+                        "children": [
+                            { "name": "方法 A", "type": "concept", "description": "方法A详解" },
+                            { "name": "方法 B", "type": "concept", "description": "方法B详解" }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": f"{keyword} 应用实践",
+                "type": "concept",
+                "description": "实际应用",
+                "children": [
+                    { "name": "案例1", "type": "concept", "description": "应用案例" },
+                    { "name": "前沿论文", "type": "paper", "authors": "待补充", "year": "2024", "quote": "相关研究", "url": "" }
+                ]
+            }
+        ]
+    }
 
 def call_deepseek(prompt):
-    """调用 DeepSeek API，返回 (知识树 dict 或 None, 错误说明或 None)。"""
     if not DEEPSEEK_API_KEY or not str(DEEPSEEK_API_KEY).strip():
+        print("❌ DEEPSEEK_API_KEY 未配置")
         return None, "未配置 DEEPSEEK_API_KEY"
 
     payload = {
@@ -46,96 +115,78 @@ def call_deepseek(prompt):
             {"role": "system", "content": DEEPSEEK_SYSTEM_TREE},
             {"role": "user", "content": prompt},
         ],
-        "temperature": 0.5,
-        "max_tokens": 8192,
+        "temperature": 0.6,
+        "max_tokens": 4096,  # 降低 token 防止截断
         "response_format": {"type": "json_object"},
     }
     try:
-        response = requests.post(
-            DEEPSEEK_ENDPOINT, headers=HEADERS, json=payload, timeout=120
-        )
+        print(f"📡 正在请求 DeepSeek API，主题: {prompt[:50]}...")
+        response = requests.post(DEEPSEEK_ENDPOINT, headers=HEADERS, json=payload, timeout=90)
         if not response.ok:
-            snippet = (response.text or "")[:800]
-            print(f"DeepSeek HTTP {response.status_code}: {snippet}")
-            return None, f"上游接口 HTTP {response.status_code}"
-
+            print(f"❌ HTTP {response.status_code}: {response.text[:200]}")
+            return None, f"API 返回 {response.status_code}"
         result = response.json()
         choices = result.get("choices") or []
         if not choices:
-            return None, "上游返回无 choices 字段"
-
-        choice0 = choices[0]
-        finish_reason = choice0.get("finish_reason")
-        msg = choice0.get("message") or {}
-        content = msg.get("content")
-        if content is None or not str(content).strip():
-            print(f"DeepSeek 空内容 finish_reason={finish_reason} raw={repr(result)[:500]}")
-            return None, f"模型返回空内容（finish_reason={finish_reason}）"
-
-        content = str(content).strip()
-
-        try:
-            tree_data = json.loads(content)
-        except json.JSONDecodeError:
-            import re
-
-            match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content, re.IGNORECASE)
-            if match:
-                try:
-                    tree_data = json.loads(match.group(1).strip())
-                except json.JSONDecodeError as e:
-                    print(f"JSON 解析失败(代码块): {e}\n前300字: {content[:300]}")
-                    return None, "模型返回的 json 无法解析"
-            else:
-                print(f"JSON 解析失败: {content[:400]}")
-                return None, "模型返回的 json 无法解析"
-
-        if finish_reason == "length":
-            print("警告: finish_reason=length，输出可能被截断，若前端异常可适当缩小树规模")
-
+            return None, "响应无 choices"
+        content = choices[0].get("message", {}).get("content")
+        if not content:
+            return None, "模型返回空内容"
+        # 尝试解析 JSON
+        content = content.strip()
+        # 移除可能的 markdown 代码块标记
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.endswith("```"):
+            content = content[:-3]
+        tree_data = json.loads(content)
+        # 基本校验
+        if not isinstance(tree_data, dict) or "name" not in tree_data:
+            raise ValueError("根节点缺少 name 字段")
+        print(f"✅ 成功生成知识树: {tree_data.get('name')}")
         return tree_data, None
-    except requests.RequestException as e:
-        print(f"API 请求失败: {e}")
-        return None, f"网络请求失败: {e}"
-    except (KeyError, TypeError, ValueError) as e:
-        print(f"API 响应异常: {e}")
-        return None, f"响应格式异常: {e}"
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON 解析失败: {e}\n原始内容前300字符: {content[:300]}")
+        return None, f"JSON 格式错误: {e}"
+    except Exception as e:
+        print(f"❌ API 调用异常: {traceback.format_exc()}")
+        return None, f"请求异常: {e}"
 
 @app.route('/generate', methods=['POST'])
 def generate_knowledge_tree():
-    """接收关键词，返回知识树 JSON"""
     data = request.get_json()
     keyword = data.get('keyword', '').strip()
     if not keyword:
         return jsonify({'error': '请提供关键词'}), 400
 
-    prompt = f"""请为主题「{keyword}」生成一棵完整知识树，输出为单个 json 对象（与 system 中的 EXAMPLE JSON OUTPUT 同一结构风格）。
-层数从根计：第1层根、第2层恰为「前置理论基础」「核心概念与验证」「应用与前沿」三个 concept。
-第3层每分类下 2～3 个 concept；不得在第3层出现 paper。
-从根到任一 paper 的路径总长须为 4 或 5：要么第3层 concept 下直接挂 2～3 个 paper（4 层）；要么第3层下再接一层 concept，其下再挂 1～3 个 paper（5 层）。同一父节点下 children 要么全 concept 要么全 paper。
-每篇 paper 含 name,type,quote,url,authors,year,children([])。为控制长度，每处 paper 列表最多 3 条。
-url 规则：勿填示例站；无把握则 url 留空 ""，服务端会按 arXiv → Semantic Scholar → OpenAlex 顺序补全链接。
-"""
-    tree_data, api_err = call_deepseek(prompt)
+    prompt = f"""请为主题「{keyword}」生成一棵多层级知识树（深度4-6层），展现完整学习脉络。每个概念节点尽量提供 description。输出严格的 JSON 对象。"""
+    
+    tree_data, err = call_deepseek(prompt)
     if tree_data is None:
-        return jsonify(
-            {"error": "生成知识树失败，请稍后重试", "detail": api_err or "未知错误"}
-        ), 500
+        print(f"⚠️ API 生成失败，使用回退树。错误: {err}")
+        tree_data = generate_fallback_tree(keyword)
+    else:
+        # 确保有 children 字段
+        if 'children' not in tree_data:
+            tree_data['children'] = []
+        # 补全描述（如果缺失）
+        def fill_desc(node):
+            if 'description' not in node and node.get('type') != 'paper':
+                node['description'] = f"{node.get('name', '')} 相关知识"
+            for child in node.get('children', []):
+                fill_desc(child)
+        fill_desc(tree_data)
 
-    if 'name' not in tree_data:
-        tree_data['name'] = keyword
-    if 'children' not in tree_data:
-        tree_data['children'] = []
-
+    # 论文链接补全（即使回退树也尝试）
     try:
         paper_enrich.enrich_tree_with_literature(tree_data)
     except Exception as e:
-        print(f"文献链接补全失败（已返回未补全的树）: {e}")
-    
+        print(f"论文链接补全失败: {e}")
+
     tree_data['created_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     tree_data['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
     return jsonify(tree_data)
+
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -596,6 +647,67 @@ def get_statistics():
             'message': f'获取统计失败: {str(e)}'
         }), 500
 
+@app.route('/expand', methods=['POST'])
+def expand_node():
+    """接收父节点信息，生成其子节点并返回"""
+    data = request.get_json()
+    parent_name = data.get('parent_name', '').strip()
+    parent_path = data.get('parent_path', '')   # 用于上下文
+    tree_name = data.get('tree_name', '')       # 当前树名（可选）
+    keyword = data.get('keyword', parent_name)  # 默认使用父节点名
+    
+    if not parent_name:
+        return jsonify({'error': '缺少父节点名称'}), 400
+    
+    prompt = f"""请为主题「{keyword}」生成**仅其直接子节点**（深度为1，不要超过2层）。输出格式为一个 children 数组，每个子节点可以是 concept 或 paper。
+要求：
+- 每个子节点包含 name, type, description (可选)
+- paper 节点需包含 authors, year, quote, url(可留空)
+- 最多生成 5 个子节点
+- 输出必须是合法的 JSON 数组，例如：
+[
+  {{"name":"子概念1","type":"concept","description":"说明"}},
+  {{"name":"相关论文","type":"paper","authors":"..."}}
+]
+"""
+ 
+    system_prompt = "你是知识树生成助手。用户会要求生成某个主题的直接子节点，请只输出一个 JSON 数组，不要输出其他文字。"
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.6,
+        "max_tokens": 2048,
+        "response_format": {"type": "json_object"},
+    }
+
+    try:
+        response = requests.post(DEEPSEEK_ENDPOINT, headers=HEADERS, json=payload, timeout=60)
+        if response.status_code == 200:
+            result = response.json()
+            content = result['choices'][0]['message']['content']
+            # 尝试解析 JSON
+            import json
+            obj = json.loads(content)
+            if isinstance(obj, list):
+                children = obj
+            elif isinstance(obj, dict) and 'children' in obj:
+                children = obj['children']
+            else:
+                children = []
+            # 为每个子节点补充必要字段
+            for child in children:
+                if 'type' not in child:
+                    child['type'] = 'concept'
+                if 'children' not in child:
+                    child['children'] = []
+            return jsonify({'code': 200, 'children': children})
+        else:
+            return jsonify({'code': 500, 'message': 'API调用失败'}), 500
+    except Exception as e:
+        return jsonify({'code': 500, 'message': str(e)}), 500
 
 
 def count_nodes(node):

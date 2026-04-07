@@ -41,3 +41,21 @@ a {
     padding: 4px 8px;
     font-size: 12px;
 }
+
+.float-expand-btn {
+    position: fixed;
+    width: 36px;
+    height: 36px;
+    background: #3b82f6;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    z-index: 1000;
+    border: 2px solid white;
+}

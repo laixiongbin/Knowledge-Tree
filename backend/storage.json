@@ -1,0 +1,260 @@
+{
+  "注意力机制": {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "authors": [
+                      "Dzmitry Bahdanau",
+                      "Kyunghyun Cho",
+                      "Yoshua Bengio"
+                    ],
+                    "children": [],
+                    "name": "Bahdanau 注意力",
+                    "quote": "提出基于加性注意力的神经机器翻译模型",
+                    "type": "paper",
+                    "url": "https://arxiv.org/abs/1409.0473",
+                    "year": 2014
+                  }
+                ],
+                "description": "使用前馈网络计算相似度，适用于不同维度的查询和键",
+                "name": "加性注意力",
+                "type": "concept"
+              },
+              {
+                "children": [
+                  {
+                    "children": [],
+                    "description": "点积后除以维度的平方根以稳定训练",
+                    "name": "缩放点积注意力",
+                    "type": "concept"
+                  }
+                ],
+                "description": "通过点积计算相似度，效率高但需缩放以避免梯度问题",
+                "name": "点积注意力",
+                "type": "concept"
+              }
+            ],
+            "description": "计算查询与键的相似度以分配权重",
+            "name": "注意力函数",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "authors": [
+                      "Ashish Vaswani",
+                      "Noam Shazeer",
+                      "Niki Parmar",
+                      "Jakob Uszkoreit",
+                      "Llion Jones",
+                      "Aidan N. Gomez",
+                      "Łukasz Kaiser",
+                      "Illia Polosukhin"
+                    ],
+                    "children": [
+                      {
+                        "children": [],
+                        "description": "Transformer 的核心组件，用于计算输入序列中不同位置之间的相关性权重。",
+                        "name": "注意力机制",
+                        "type": "concept"
+                      },
+                      {
+                        "children": [],
+                        "description": "注意力机制的扩展，通过并行多个注意力头来捕捉不同表示子空间的信息。",
+                        "name": "多头注意力",
+                        "type": "concept"
+                      },
+                      {
+                        "children": [
+                          {
+                            "children": [],
+                            "description": "使用固定或可学习的向量来表示序列中每个位置的编码方法，如正弦余弦编码。",
+                            "name": "绝对位置编码",
+                            "type": "concept"
+                          },
+                          {
+                            "children": [],
+                            "description": "编码序列中元素之间的相对距离，而非绝对位置，常用于Transformer模型。",
+                            "name": "相对位置编码",
+                            "type": "concept"
+                          },
+                          {
+                            "authors": "Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I.",
+                            "children": [],
+                            "name": "Attention is All You Need",
+                            "quote": "We use sine and cosine functions of different frequencies to encode the position information.",
+                            "type": "paper",
+                            "url": "https://arxiv.org/abs/1706.03762",
+                            "year": 2017
+                          },
+                          {
+                            "children": [],
+                            "description": "通过旋转操作将位置信息融入注意力机制，如RoPE（Rotary Position Embedding）。",
+                            "name": "旋转位置编码",
+                            "type": "concept"
+                          },
+                          {
+                            "children": [],
+                            "description": "位置编码作为模型参数在训练过程中学习得到，而非预先定义。",
+                            "name": "可学习位置编码",
+                            "type": "concept"
+                          }
+                        ],
+                        "description": "为输入序列添加位置信息的方法，以弥补 Transformer 缺乏顺序感知的缺陷。",
+                        "name": "位置编码",
+                        "type": "concept"
+                      },
+                      {
+                        "children": [],
+                        "description": "Transformer 的基本结构，包括编码器处理输入和解码器生成输出。",
+                        "name": "编码器-解码器架构",
+                        "type": "concept"
+                      },
+                      {
+                        "authors": "Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I.",
+                        "children": [],
+                        "name": "Attention Is All You Need",
+                        "quote": "We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.",
+                        "type": "paper",
+                        "url": "https://arxiv.org/abs/1706.03762",
+                        "year": 2017
+                      }
+                    ],
+                    "name": "Transformer 模型",
+                    "quote": "提出基于自注意力的序列到序列模型，替代循环神经网络",
+                    "type": "paper",
+                    "url": "https://arxiv.org/abs/1706.03762",
+                    "year": 2017
+                  }
+                ],
+                "description": "序列内部元素间的注意力，用于捕捉长距离依赖",
+                "name": "自注意力",
+                "type": "concept"
+              },
+              {
+                "children": [],
+                "description": "不同序列间的注意力，常用于编码器-解码器结构",
+                "name": "交叉注意力",
+                "type": "concept"
+              }
+            ],
+            "description": "根据应用场景分类的不同注意力形式",
+            "name": "注意力类型",
+            "type": "concept"
+          }
+        ],
+        "description": "注意力机制的核心思想和基本组件",
+        "name": "基础概念",
+        "type": "concept"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [],
+                "description": "在自注意力基础上使用多头机制，增强表示能力",
+                "name": "多头自注意力",
+                "type": "concept"
+              }
+            ],
+            "description": "并行多个注意力头以捕捉不同子空间的信息",
+            "name": "多头注意力",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "description": "限制注意力范围到局部窗口，适用于长序列",
+                "name": "局部注意力",
+                "type": "concept"
+              },
+              {
+                "children": [],
+                "description": "沿不同轴应用注意力，用于高维数据如图像",
+                "name": "轴向注意力",
+                "type": "concept"
+              }
+            ],
+            "description": "减少计算复杂度，只关注部分输入元素",
+            "name": "稀疏注意力",
+            "type": "concept"
+          }
+        ],
+        "description": "注意力机制的改进和变体，提升性能或适应特定任务",
+        "name": "高级扩展",
+        "type": "concept"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "authors": [
+                  "Jacob Devlin",
+                  "Ming-Wei Chang",
+                  "Kenton Lee",
+                  "Kristina Toutanova"
+                ],
+                "children": [],
+                "name": "BERT 模型",
+                "quote": "提出基于双向 Transformer 的预训练语言模型",
+                "type": "paper",
+                "url": "https://arxiv.org/abs/1810.04805",
+                "year": 2018
+              }
+            ],
+            "description": "用于机器翻译、文本生成等任务",
+            "name": "自然语言处理",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": [
+                  "Alexey Dosovitskiy",
+                  "Lucas Beyer",
+                  "Alexander Kolesnikov",
+                  "Dirk Weissenborn",
+                  "Xiaohua Zhai",
+                  "Thomas Unterthiner",
+                  "Mostafa Dehghani",
+                  "Matthias Minderer",
+                  "Georg Heigold",
+                  "Sylvain Gelly",
+                  "Jakob Uszkoreit",
+                  "Neil Houlsby"
+                ],
+                "children": [],
+                "name": "Vision Transformer",
+                "quote": "将 Transformer 应用于图像分类，直接处理图像块",
+                "type": "paper",
+                "url": "https://arxiv.org/abs/2010.11929",
+                "year": 2020
+              }
+            ],
+            "description": "用于图像分类、目标检测等任务",
+            "name": "计算机视觉",
+            "type": "concept"
+          }
+        ],
+        "description": "注意力机制在深度学习中的主要应用场景",
+        "name": "应用领域",
+        "type": "concept"
+      }
+    ],
+    "created_at": "2026-04-08 00:31:41",
+    "description": "深度学习中的一种动态加权机制，用于聚焦输入数据的关键部分",
+    "name": "注意力机制",
+    "type": "concept",
+    "updated_at": "2026-04-08 01:14:58"
+  }
+}

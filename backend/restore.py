@@ -1,78 +1,63 @@
 import json
 import os
+import threading
+from typing import Any, Dict, Optional
+
 
 class JSONStorage:
-    """JSON文件存储类 - 以TreeName为key存储数据"""
-    
-    def __init__(self, filename='data.json'):
-        self.filename = filename
-        # 如果文件不存在，自动创建空文件
-        if not os.path.exists(filename):
-            self.save_data({})
-    
-    def load_data(self):
-        """加载数据"""
-        try:
-            with open(self.filename, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, FileNotFoundError):
+    """将多棵知识树以「树名 -> JSON 对象」形式存入单个 JSON 文件。"""
+
+    def __init__(self, path: str):
+        self.path = path
+        self._lock = threading.Lock()
+
+    def _load(self) -> Dict[str, Any]:
+        if not os.path.isfile(self.path):
             return {}
-    
-    def save_data(self, data):
-        """保存数据"""
-        with open(self.filename, 'w', encoding='utf-8') as f:
+        try:
+            with open(self.path, "r", encoding="utf-8") as f:
+                raw = f.read().strip()
+                if not raw:
+                    return {}
+                data = json.loads(raw)
+                return data if isinstance(data, dict) else {}
+        except (json.JSONDecodeError, OSError):
+            return {}
+
+    def _save(self, data: Dict[str, Any]) -> None:
+        abs_path = os.path.abspath(self.path)
+        parent = os.path.dirname(abs_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        base = os.path.basename(abs_path)
+        tmp = os.path.join(parent or ".", f".{base}.tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    def create(self, TreeName, TreeData):
-        """创建或更新数据（以TreeName为key）"""
-        data = self.load_data()
-        data[TreeName] = TreeData
-        self.save_data(data)
-        return True
-    
-    def read(self, TreeName):
-        """读取指定TreeName的数据"""
-        data = self.load_data()
-        return data.get(TreeName)
-    
-    def read_all(self):
-        """读取所有数据"""
-        return self.load_data()
-    
-    def delete(self, TreeName):
-        """删除指定TreeName的数据"""
-        data = self.load_data()
-        if TreeName in data:
-            del data[TreeName]
-            self.save_data(data)
+        os.replace(tmp, abs_path)
+
+    def read_all(self) -> Dict[str, Any]:
+        with self._lock:
+            return self._load()
+
+    def read(self, name: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            return self._load().get(name)
+
+    def exists(self, name: str) -> bool:
+        with self._lock:
+            return name in self._load()
+
+    def create(self, name: str, data: Dict[str, Any]) -> None:
+        with self._lock:
+            all_data = self._load()
+            all_data[name] = data
+            self._save(all_data)
+
+    def delete(self, name: str) -> bool:
+        with self._lock:
+            all_data = self._load()
+            if name not in all_data:
+                return False
+            del all_data[name]
+            self._save(all_data)
             return True
-        return False
-    
-    def update(self, TreeName, TreeData):
-        """更新指定TreeName的数据（如果存在）"""
-        data = self.load_data()
-        if TreeName in data:
-            data[TreeName] = TreeData
-            self.save_data(data)
-            return True
-        return False
-    
-    def exists(self, TreeName):
-        """检查TreeName是否存在"""
-        data = self.load_data()
-        return TreeName in data
-    
-    def get_all_keys(self):
-        """获取所有TreeName"""
-        data = self.load_data()
-        return list(data.keys())
-    
-    def clear(self):
-        """清空所有数据"""
-        self.save_data({})
-        return True
-    
-    def get_size(self):
-        """获取数据条数"""
-        data = self.load_data()
-        return len(data)

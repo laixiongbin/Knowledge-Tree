@@ -22,7 +22,7 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-# 更稳健的多级嵌套提示词（降低模型输出难度）
+
 DEEPSEEK_SYSTEM_TREE = """你是知识树生成助手。请根据用户主题输出一个 JSON 对象（只输出 JSON，不要其他文字）。
 
 结构规则：
@@ -33,35 +33,65 @@ DEEPSEEK_SYSTEM_TREE = """你是知识树生成助手。请根据用户主题输
 - 同一父节点下 children 可以混合 concept 和 paper。
 - paper 节点必须包含：name, type="paper", quote, url(不知道留空), authors, year, children=[]。
 
-示例（主题“注意力机制”）：
+**关于 importance 字段：**
+- 每个节点必须包含 importance 字段，值为正整数。
+- **对于同一父节点下的所有子节点，importance 表示建议的学习顺序或重要性排序，数值越小越优先学习。**
+- 兄弟节点之间的 importance 值必须互不相同，从 1 开始连续递增（如 1, 2, 3...）。
+- 排序时请遵循：基础概念优先（作为前置知识的排在前面）→ 核心理论次之 → 应用与论文最后。
+- 如果节点是 paper 类型，通常 importance 值较大（排在概念之后）。
+- 示例：若某父节点有 3 个子节点，则它们的 importance 应分别为 1, 2, 3，不可重复，不可都为 1。
+
+示例（主题“注意力机制”，注意 importance 的赋值）：
 {
   "name": "注意力机制",
   "type": "concept",
   "description": "深度学习中的一种动态加权机制",
+  "importance": 1,
   "children": [
     {
       "name": "注意力函数",
       "type": "concept",
       "description": "计算查询与键的相似度",
+      "importance": 1,
       "children": [
-        { "name": "加性注意力", "type": "concept", "description": "使用前馈网络计算" },
-        { "name": "点积注意力", "type": "concept", "description": "点积后缩放" }
+        { "name": "加性注意力", "type": "concept", "description": "使用前馈网络计算", "importance": 1 },
+        { "name": "点积注意力", "type": "concept", "description": "点积后缩放", "importance": 2 }
       ]
     },
     {
       "name": "多头注意力",
       "type": "concept",
       "description": "并行多个注意力头",
+      "importance": 2,
       "children": [
-        { "name": "自注意力", "type": "concept", "description": "序列内部关联" }
+        { "name": "自注意力", "type": "concept", "description": "序列内部关联", "importance": 1 }
       ]
+    },
+    {
+      "name": "Transformer 论文",
+      "type": "paper",
+      "authors": "Vaswani et al.",
+      "year": 2017,
+      "quote": "Attention Is All You Need",
+      "url": "https://arxiv.org/abs/1706.03762",
+      "importance": 3,
+      "children": []
     }
   ]
 }
 """
+def clean_identical_importance(node):
+    children = node.get('children', [])
+    if children:
+        imps = [c.get('importance') for c in children if 'importance' in c]
+        if len(imps) == len(children) and len(set(imps)) == 1:
+            for c in children:
+                c.pop('importance', None)
+        for c in children:
+            clean_identical_importance(c)
 
 def generate_fallback_tree(keyword):
-    """生成一个保证有效的多级回退树"""
+
     return {
         "name": keyword,
         "type": "concept",
@@ -106,7 +136,7 @@ def generate_fallback_tree(keyword):
 
 def call_deepseek(prompt):
     if not DEEPSEEK_API_KEY or not str(DEEPSEEK_API_KEY).strip():
-        print("❌ DEEPSEEK_API_KEY 未配置")
+        print("DEEPSEEK_API_KEY 未配置")
         return None, "未配置 DEEPSEEK_API_KEY"
 
     payload = {
@@ -120,10 +150,10 @@ def call_deepseek(prompt):
         "response_format": {"type": "json_object"},
     }
     try:
-        print(f"📡 正在请求 DeepSeek API，主题: {prompt[:50]}...")
+        print(f"正在请求 DeepSeek API，主题: {prompt[:50]}...")
         response = requests.post(DEEPSEEK_ENDPOINT, headers=HEADERS, json=payload, timeout=90)
         if not response.ok:
-            print(f"❌ HTTP {response.status_code}: {response.text[:200]}")
+            print(f"HTTP {response.status_code}: {response.text[:200]}")
             return None, f"API 返回 {response.status_code}"
         result = response.json()
         choices = result.get("choices") or []
@@ -132,7 +162,7 @@ def call_deepseek(prompt):
         content = choices[0].get("message", {}).get("content")
         if not content:
             return None, "模型返回空内容"
-        # 尝试解析 JSON
+        # 解析 JSON
         content = content.strip()
         # 移除可能的 markdown 代码块标记
         if content.startswith("```json"):
@@ -143,13 +173,13 @@ def call_deepseek(prompt):
         # 基本校验
         if not isinstance(tree_data, dict) or "name" not in tree_data:
             raise ValueError("根节点缺少 name 字段")
-        print(f"✅ 成功生成知识树: {tree_data.get('name')}")
+        print(f"成功生成知识树: {tree_data.get('name')}")
         return tree_data, None
     except json.JSONDecodeError as e:
-        print(f"❌ JSON 解析失败: {e}\n原始内容前300字符: {content[:300]}")
+        print(f"JSON 解析失败: {e}\n原始内容前300字符: {content[:300]}")
         return None, f"JSON 格式错误: {e}"
     except Exception as e:
-        print(f"❌ API 调用异常: {traceback.format_exc()}")
+        print(f"API 调用异常: {traceback.format_exc()}")
         return None, f"请求异常: {e}"
 
 @app.route('/generate', methods=['POST'])
@@ -163,7 +193,7 @@ def generate_knowledge_tree():
     
     tree_data, err = call_deepseek(prompt)
     if tree_data is None:
-        print(f"⚠️ API 生成失败，使用回退树。错误: {err}")
+        print(f" API 生成失败，使用回退树。错误: {err}")
         tree_data = generate_fallback_tree(keyword)
     else:
         # 确保有 children 字段
@@ -176,15 +206,17 @@ def generate_knowledge_tree():
             for child in node.get('children', []):
                 fill_desc(child)
         fill_desc(tree_data)
+        clean_identical_importance(tree_data)   
 
     # 论文链接补全（即使回退树也尝试）
     try:
         paper_enrich.enrich_tree_with_literature(tree_data)
     except Exception as e:
         print(f"论文链接补全失败: {e}")
-
+    assign_default_importance(tree_data) 
     tree_data['created_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     tree_data['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
     return jsonify(tree_data)
 
 
@@ -200,7 +232,7 @@ st = restore.JSONStorage(_STORAGE_FILE)
 
 @app.route('/api/trees', methods=['GET'])
 def get_all_trees():
-    """获取所有知识树列表"""
+
     try:
         all_data = st.read_all()
         
@@ -232,7 +264,6 @@ def get_all_trees():
 
 @app.route('/api/tree/<tree_name>', methods=['GET'])
 def get_tree_detail(tree_name):
-    """获取单个知识树的完整数据"""
     try:
         data = st.read(tree_name)
         
@@ -257,7 +288,6 @@ def get_tree_detail(tree_name):
 
 @app.route('/api/tree/<tree_name>/node', methods=['POST'])
 def add_node(tree_name):
-    """向知识树添加节点"""
     try:
         node_data = request.get_json()
         
@@ -285,7 +315,7 @@ def add_node(tree_name):
         parent_path = node_data.get('parent_path', '')
         
         if parent_path:
-            # 在指定路径下添加节点
+            # 添加节点
             parent = find_node_by_path(tree, parent_path)
             if parent:
                 if 'children' not in parent:
@@ -302,7 +332,7 @@ def add_node(tree_name):
                 tree['children'] = []
             tree['children'].append(node_data)
         
-        # 更新时间戳
+
         tree['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
         # 保存
@@ -323,7 +353,7 @@ def add_node(tree_name):
 
 @app.route('/api/tree/<tree_name>/node/<path:node_path>', methods=['PUT'])
 def update_node(tree_name, node_path):
-    """更新知识树中的节点"""
+
     try:
         update_data = request.get_json()
         
@@ -343,10 +373,10 @@ def update_node(tree_name, node_path):
                 'message': f'找不到节点路径: {node_path}'
             }), 404
         
-        # 更新节点数据（保留原有字段，只更新提供的字段）
+        # 更新节点数据
         node.update(update_data)
         
-        # 更新时间戳
+
         tree['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
         # 保存
@@ -366,7 +396,7 @@ def update_node(tree_name, node_path):
 
 @app.route('/api/tree/<tree_name>/node/<path:node_path>', methods=['DELETE'])
 def delete_node(tree_name, node_path):
-    """删除知识树中的节点"""
+
     try:
         if not st.exists(tree_name):
             return jsonify({
@@ -376,7 +406,7 @@ def delete_node(tree_name, node_path):
         
         tree = st.read(tree_name)
         
-        # 解析节点路径
+
         path_parts = node_path.split('/')
         node_name = path_parts[-1]
         parent_path = '/'.join(path_parts[:-1]) if len(path_parts) > 1 else ''
@@ -392,7 +422,7 @@ def delete_node(tree_name, node_path):
                         deleted = True
                         break
         else:
-            # 删除根节点下的子节点
+            # 删除子节点
             if 'children' in tree:
                 for i, child in enumerate(tree['children']):
                     if child.get('name') == node_name:
@@ -406,7 +436,7 @@ def delete_node(tree_name, node_path):
                 'message': f'找不到节点 "{node_name}"'
             }), 404
         
-        # 更新时间戳
+
         tree['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
         # 保存
@@ -425,7 +455,6 @@ def delete_node(tree_name, node_path):
 
 @app.route('/api/tree/<tree_name>/batch_nodes', methods=['POST'])
 def batch_add_nodes(tree_name):
-    """批量添加节点"""
     try:
         nodes_data = request.get_json()
         
@@ -488,7 +517,6 @@ def batch_add_nodes(tree_name):
 
 @app.route('/save', methods=['POST'])
 def save():
-    """接收前端的数据并保存"""
     try:
         data = request.get_json()
         
@@ -531,7 +559,6 @@ def save():
 
 @app.route('/api/tree/<tree_name>', methods=['PUT'])
 def update_tree(tree_name):
-    """更新知识树"""
     try:
         update_data = request.get_json()
         
@@ -561,7 +588,6 @@ def update_tree(tree_name):
 
 @app.route('/api/tree/<tree_name>', methods=['DELETE'])
 def delete_tree(tree_name):
-    """删除知识树"""
     try:
         if st.delete(tree_name):
             return jsonify({
@@ -764,6 +790,155 @@ def find_node_by_path(node, path):
         if not found:
             return None
     return current
+
+@app.route('/api/tree/<tree_name>/reorder', methods=['POST'])
+def reorder_children(tree_name):
+    """批量调整同级节点的优先级顺序"""
+    try:
+        data = request.get_json()
+        parent_path = data.get('parent_path', '')
+        ordered_names = data.get('ordered_names', [])
+        
+        if not ordered_names:
+            return jsonify({'code': 400, 'message': 'ordered_names 不能为空'}), 400
+        
+        if not st.exists(tree_name):
+            return jsonify({'code': 404, 'message': '知识树不存在'}), 404
+        
+        tree = st.read(tree_name)
+        
+        # 找到父节点
+        if parent_path:
+            parent = find_node_by_path(tree, parent_path)
+            if not parent:
+                return jsonify({'code': 404, 'message': '父节点不存在'}), 404
+            children = parent.get('children', [])
+        else:
+            children = tree.get('children', [])
+        
+        # 建立名称到节点的映射
+        name_to_node = {node['name']: node for node in children}
+        
+        # 按新顺序重新设置 importance
+        new_children = []
+        for idx, name in enumerate(ordered_names, start=1):
+            if name not in name_to_node:
+                return jsonify({'code': 400, 'message': f'节点 "{name}" 不在子节点中'}), 400
+            node = name_to_node[name]
+            node['importance'] = idx
+            new_children.append(node)
+        
+        
+        existing_names = set(name_to_node.keys())
+        ordered_set = set(ordered_names)
+        leftover = [node for name, node in name_to_node.items() if name not in ordered_set]
+        for node in leftover:
+            if 'importance' not in node:
+                node['importance'] = len(new_children) + 1
+            new_children.append(node)
+        
+        # 更新父节点的 children
+        if parent_path:
+            parent['children'] = new_children
+        else:
+            tree['children'] = new_children
+        
+        tree['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        st.create(tree_name, tree)
+
+        def sort_children_by_importance(node):
+            if 'children' in node and node['children']:
+                node['children'].sort(key=lambda x: x.get('importance', 999))
+                for child in node['children']:
+                    sort_children_by_importance(child)
+            return node
+
+# 在 get_tree_detail 返回前调用
+        data = sort_children_by_importance(data)
+        
+        return jsonify({
+            'code': 200,
+            'message': '优先级更新成功',
+            'children': new_children
+        })
+    
+    except Exception as e:
+        return jsonify({'code': 500, 'message': str(e)}), 500
+
+@app.route('/api/tree/<tree_name>/auto_importance',methods = ['POST'])
+def auto_importance(tree_name):
+    try:
+        data = request.get_json()
+        parent_path = data.get('parent_path','')
+
+        if not st.exists(tree_name):
+            return jsonify({'code':404,'message':'知识树不存在'}),404
+        
+        tree = st.read(tree_name)
+        if parent_path :
+            parent=find_node_by_path(tree,parent_path)
+            if not parent_path:
+                return jsonify({'code':404,'message':'知识树不存在'})
+            children = parent.get('children',[])
+        else :
+            children  =tree.get('children',[])
+
+        if not children:
+            return jsonify({'code':404,'message':'没有子节点可以排序'}),400
+        
+        nodes_info = "\n".join([f" - {node['name']}: {node.get('description','无描述')}" for node in children])
+        prompt = f"""请根据以下原则，对下列同一主题下的子节点进行**学习顺序排序**（从最应该先学、最重要到最不重要）：
+
+排序原则：
+1. 基础概念优先（作为其他知识前提的排在前面）
+2. 核心思想优先（最通用、引用最多的排前）
+3. 理论先于应用（concept 排在 paper 之前）
+4. 经典先于前沿（开创性工作排在改进工作前）
+5. 宽泛先于专深（适用范围广的排前）
+
+子节点列表：
+{nodes_info}
+
+只输出节点名称的 JSON 数组，例如：["概念A", "概念B", "论文C"]
+"""
+        payload = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": "你是知识重要性排序专家。只输出JSON数组。"},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.3,
+            "response_format": {"type": "json_object"}
+        }
+        
+        response = requests.post(DEEPSEEK_ENDPOINT, headers=HEADERS, json=payload, timeout=60)
+        if response.status_code != 200:
+            return jsonify({'code': 500, 'message': 'AI排序失败'}), 500
+        
+        result = response.json()
+        content = result['choices'][0]['message']['content']
+        ordered_names = json.loads(content)
+        if not isinstance(ordered_names, list):
+            ordered_names = []
+        
+
+        reorder_data = {
+            "parent_path": parent_path,
+            "ordered_names": ordered_names
+        }
+        # 直接复用 reorder 函数（可提取为内部函数）
+        with app.test_request_context(json=reorder_data):
+            res = reorder_children(tree_name)
+            return res
+    
+    except Exception as e:
+        return jsonify({'code': 500, 'message': str(e)}), 500
+
+def assign_default_importance(node, sibling_index=0):
+    if 'importance' not in node:
+        node['importance'] = sibling_index + 1
+    for idx, child in enumerate(node.get('children', [])):
+        assign_default_importance(child, idx)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

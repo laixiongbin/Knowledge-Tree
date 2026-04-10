@@ -1,5 +1,133 @@
 {
-  "注意力机制": {
+  "AI 知识体系": {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "importance": 1,
+                "name": "线性回归",
+                "type": "concept",
+                "children": [
+                  {
+                    "children": [],
+                    "description": "一种通过最小化误差平方和来估计线性回归模型参数的方法。",
+                    "name": "最小二乘法",
+                    "type": "concept",
+                    "importance": 1
+                  },
+                  {
+                    "children": [],
+                    "description": "线性回归的扩展，涉及多个自变量来预测一个因变量。",
+                    "name": "多元线性回归",
+                    "type": "concept",
+                    "importance": 2
+                  },
+                  {
+                    "children": [],
+                    "description": "在线性回归中加入正则化项以防止过拟合，如岭回归和Lasso回归。",
+                    "name": "正则化线性回归",
+                    "type": "concept",
+                    "importance": 3
+                  },
+                  {
+                    "children": [],
+                    "description": "用于检验线性回归模型中参数和整体模型显著性的统计方法。",
+                    "name": "线性回归的假设检验",
+                    "type": "concept",
+                    "importance": 4
+                  },
+                  {
+                    "authors": "Kenneth Levenberg",
+                    "children": [],
+                    "name": "A Method for the Solution of Certain Non-Linear Problems in Least Squares",
+                    "quote": "提出了一种结合梯度下降和高斯-牛顿法的优化算法，用于非线性最小二乘问题，后来发展为Levenberg-Marquardt算法。",
+                    "type": "paper",
+                    "url": "",
+                    "year": 1944,
+                    "importance": 5
+                  }
+                ]
+              },
+              {
+                "children": [],
+                "description": "监督学习的一种任务类型，旨在将输入数据分配到预定义的类别中。",
+                "name": "分类",
+                "type": "concept",
+                "importance": 2
+              },
+              {
+                "children": [],
+                "description": "监督学习的一种任务类型，旨在预测连续数值输出。",
+                "name": "回归",
+                "type": "concept",
+                "importance": 3
+              },
+              {
+                "children": [],
+                "description": "一种用于分类和回归的监督学习算法，通过寻找最优超平面来分隔数据。",
+                "name": "支持向量机",
+                "type": "concept",
+                "importance": 4
+              },
+              {
+                "children": [],
+                "description": "一种监督学习算法，使用树状结构进行决策，适用于分类和回归任务。",
+                "name": "决策树",
+                "type": "concept",
+                "importance": 5
+              },
+              {
+                "authors": "Pedro Domingos",
+                "children": [],
+                "name": "A Few Useful Things to Know About Machine Learning",
+                "quote": "Machine learning is the study of algorithms that improve their performance at some task with experience.",
+                "type": "paper",
+                "url": "https://homes.cs.washington.edu/~pedrod/papers/cacm12.pdf",
+                "year": 2012,
+                "importance": 6
+              }
+            ],
+            "importance": 1,
+            "name": "监督学习",
+            "type": "concept"
+          },
+          {
+            "importance": 2,
+            "name": "无监督学习",
+            "type": "concept"
+          }
+        ],
+        "description": "数据驱动算法",
+        "importance": 1,
+        "name": "机器学习",
+        "type": "concept"
+      },
+      {
+        "children": [
+          {
+            "authors": "Vaswani",
+            "importance": 1,
+            "name": "Transformer",
+            "quote": "注意力机制",
+            "type": "paper",
+            "year": 2017
+          }
+        ],
+        "importance": 2,
+        "name": "深度学习",
+        "type": "concept"
+      }
+    ],
+    "created_at": "2026-04-09 01:11:36",
+    "description": "人工智能知识脉络",
+    "importance": 1,
+    "name": "AI 知识体系",
+    "type": "root",
+    "updated_at": "2026-04-10 18:15:07"
+  },
+  "汉代建筑": {
     "children": [
       {
         "children": [
@@ -8,149 +136,318 @@
               {
                 "children": [
                   {
-                    "authors": [
-                      "Dzmitry Bahdanau",
-                      "Kyunghyun Cho",
-                      "Yoshua Bengio"
-                    ],
+                    "authors": "刘庆柱",
                     "children": [],
-                    "name": "Bahdanau 注意力",
-                    "quote": "提出基于加性注意力的神经机器翻译模型",
+                    "importance": 1,
+                    "name": "未央宫考古研究",
+                    "quote": "《汉长安城未央宫考古发掘报告》",
                     "type": "paper",
-                    "url": "https://arxiv.org/abs/1409.0473",
-                    "year": 2014
+                    "url": "",
+                    "year": 2005
                   }
                 ],
-                "description": "使用前馈网络计算相似度，适用于不同维度的查询和键",
-                "name": "加性注意力",
+                "description": "西汉长安的主要宫殿，代表早期汉代宫殿布局",
+                "importance": 1,
+                "name": "未央宫",
                 "type": "concept"
               },
               {
-                "children": [
-                  {
-                    "children": [],
-                    "description": "点积后除以维度的平方根以稳定训练",
-                    "name": "缩放点积注意力",
-                    "type": "concept"
-                  }
-                ],
-                "description": "通过点积计算相似度，效率高但需缩放以避免梯度问题",
-                "name": "点积注意力",
+                "children": [],
+                "description": "西汉长安的另一重要宫殿，用于太后居住",
+                "importance": 2,
+                "name": "长乐宫",
                 "type": "concept"
               }
             ],
-            "description": "计算查询与键的相似度以分配权重",
-            "name": "注意力函数",
+            "description": "帝王居住与行政中心，规模宏大，体现皇权",
+            "importance": 1,
+            "name": "宫殿建筑",
             "type": "concept"
           },
           {
             "children": [
               {
-                "children": [
-                  {
-                    "authors": [
-                      "Ashish Vaswani",
-                      "Noam Shazeer",
-                      "Niki Parmar",
-                      "Jakob Uszkoreit",
-                      "Llion Jones",
-                      "Aidan N. Gomez",
-                      "Łukasz Kaiser",
-                      "Illia Polosukhin"
-                    ],
-                    "children": [
-                      {
-                        "children": [],
-                        "description": "Transformer 的核心组件，用于计算输入序列中不同位置之间的相关性权重。",
-                        "name": "注意力机制",
-                        "type": "concept"
-                      },
-                      {
-                        "children": [],
-                        "description": "注意力机制的扩展，通过并行多个注意力头来捕捉不同表示子空间的信息。",
-                        "name": "多头注意力",
-                        "type": "concept"
-                      },
-                      {
-                        "children": [
-                          {
-                            "children": [],
-                            "description": "使用固定或可学习的向量来表示序列中每个位置的编码方法，如正弦余弦编码。",
-                            "name": "绝对位置编码",
-                            "type": "concept"
-                          },
-                          {
-                            "children": [],
-                            "description": "编码序列中元素之间的相对距离，而非绝对位置，常用于Transformer模型。",
-                            "name": "相对位置编码",
-                            "type": "concept"
-                          },
-                          {
-                            "authors": "Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I.",
-                            "children": [],
-                            "name": "Attention is All You Need",
-                            "quote": "We use sine and cosine functions of different frequencies to encode the position information.",
-                            "type": "paper",
-                            "url": "https://arxiv.org/abs/1706.03762",
-                            "year": 2017
-                          },
-                          {
-                            "children": [],
-                            "description": "通过旋转操作将位置信息融入注意力机制，如RoPE（Rotary Position Embedding）。",
-                            "name": "旋转位置编码",
-                            "type": "concept"
-                          },
-                          {
-                            "children": [],
-                            "description": "位置编码作为模型参数在训练过程中学习得到，而非预先定义。",
-                            "name": "可学习位置编码",
-                            "type": "concept"
-                          }
-                        ],
-                        "description": "为输入序列添加位置信息的方法，以弥补 Transformer 缺乏顺序感知的缺陷。",
-                        "name": "位置编码",
-                        "type": "concept"
-                      },
-                      {
-                        "children": [],
-                        "description": "Transformer 的基本结构，包括编码器处理输入和解码器生成输出。",
-                        "name": "编码器-解码器架构",
-                        "type": "concept"
-                      },
-                      {
-                        "authors": "Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I.",
-                        "children": [],
-                        "name": "Attention Is All You Need",
-                        "quote": "We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.",
-                        "type": "paper",
-                        "url": "https://arxiv.org/abs/1706.03762",
-                        "year": 2017
-                      }
-                    ],
-                    "name": "Transformer 模型",
-                    "quote": "提出基于自注意力的序列到序列模型，替代循环神经网络",
-                    "type": "paper",
-                    "url": "https://arxiv.org/abs/1706.03762",
-                    "year": 2017
-                  }
-                ],
-                "description": "序列内部元素间的注意力，用于捕捉长距离依赖",
-                "name": "自注意力",
+                "children": [],
+                "description": "西汉景帝陵墓，以地下陪葬坑闻名",
+                "importance": 1,
+                "name": "汉阳陵",
+                "type": "concept"
+              },
+              {
+                "authors": "王仲殊",
+                "children": [],
+                "importance": 2,
+                "name": "汉代陵墓研究",
+                "quote": "《汉代考古学概说》",
+                "type": "paper",
+                "url": "",
+                "year": 1984
+              }
+            ],
+            "description": "帝王与贵族的墓葬，体现丧葬文化与建筑技术",
+            "importance": 2,
+            "name": "陵墓建筑",
+            "type": "concept"
+          },
+          {
+            "children": [],
+            "description": "普通百姓的居住建筑，多为木构或土坯结构",
+            "importance": 3,
+            "name": "民居建筑",
+            "type": "concept"
+          }
+        ],
+        "description": "汉代建筑的主要功能分类，反映社会结构与生活需求",
+        "importance": 1,
+        "name": "建筑类型",
+        "type": "concept"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [],
+                "description": "多层梁叠加承重，用于大型建筑",
+                "importance": 1,
+                "name": "抬梁式",
                 "type": "concept"
               },
               {
                 "children": [],
-                "description": "不同序列间的注意力，常用于编码器-解码器结构",
-                "name": "交叉注意力",
+                "description": "柱子直接承重，用于小型建筑",
+                "importance": 2,
+                "name": "穿斗式",
                 "type": "concept"
               }
             ],
-            "description": "根据应用场景分类的不同注意力形式",
-            "name": "注意力类型",
+            "description": "使用榫卯连接的木框架，支撑屋顶与墙体",
+            "importance": 1,
+            "name": "木构架技术",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "description": "四面坡屋顶，最高等级，用于宫殿",
+                "importance": 1,
+                "name": "庑殿顶",
+                "type": "concept"
+              },
+              {
+                "children": [],
+                "description": "结合悬山与庑殿特点，次高等级",
+                "importance": 2,
+                "name": "歇山顶",
+                "type": "concept"
+              }
+            ],
+            "description": "汉代屋顶的样式，体现等级与美学",
+            "importance": 2,
+            "name": "屋顶形式",
             "type": "concept"
           }
         ],
-        "description": "注意力机制的核心思想和基本组件",
+        "description": "汉代建筑的核心构造方式，以木框架为主",
+        "importance": 2,
+        "name": "建筑结构",
+        "type": "concept"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [],
+                "description": "刻有吉祥文字，如“长乐未央”",
+                "importance": 1,
+                "name": "文字瓦当",
+                "type": "concept"
+              },
+              {
+                "children": [],
+                "description": "刻有云纹、动物等图案",
+                "importance": 2,
+                "name": "图案瓦当",
+                "type": "concept"
+              }
+            ],
+            "description": "屋檐瓦片端头的装饰，常刻有文字或图案",
+            "importance": 1,
+            "name": "瓦当",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "信立祥",
+                "children": [],
+                "importance": 1,
+                "name": "汉代画像石研究",
+                "quote": "《汉代画像石综合研究》",
+                "type": "paper",
+                "url": "",
+                "year": 2000
+              }
+            ],
+            "description": "墓室墙壁的浮雕装饰，描绘生活场景",
+            "importance": 2,
+            "name": "画像石与画像砖",
+            "type": "concept"
+          }
+        ],
+        "description": "汉代建筑的装饰元素，反映文化与信仰",
+        "importance": 3,
+        "name": "装饰艺术",
+        "type": "concept"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "authors": "中国社会科学院考古研究所",
+                "children": [],
+                "importance": 1,
+                "name": "长安城考古",
+                "quote": "《汉长安城遗址考古报告》",
+                "type": "paper",
+                "url": "",
+                "year": 2003
+              }
+            ],
+            "description": "西汉都城，方形布局，有城墙与城门",
+            "importance": 1,
+            "name": "长安城",
+            "type": "concept"
+          },
+          {
+            "children": [],
+            "description": "城市划分为方形里坊，便于管理",
+            "importance": 2,
+            "name": "里坊制度",
+            "type": "concept"
+          }
+        ],
+        "description": "汉代城市的布局与设计，体现中央集权",
+        "importance": 4,
+        "name": "城市规划",
+        "type": "concept"
+      },
+      {
+        "children": [
+          {
+            "children": [],
+            "description": "奠定中国木构建筑传统，影响唐宋建筑",
+            "importance": 1,
+            "name": "对后世影响",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "authors": "张驭寰",
+                "children": [],
+                "importance": 1,
+                "name": "汉代建筑保护研究",
+                "quote": "《中国古代建筑技术史》",
+                "type": "paper",
+                "url": "",
+                "year": 2008
+              }
+            ],
+            "description": "如汉阙、墓葬等，部分保存至今",
+            "importance": 2,
+            "name": "现存遗迹",
+            "type": "concept"
+          }
+        ],
+        "description": "汉代建筑对后世的影响与现存遗迹",
+        "importance": 5,
+        "name": "影响与遗产",
+        "type": "concept"
+      }
+    ],
+    "created_at": "2026-04-10 18:11:26",
+    "description": "中国汉代（公元前202年-公元220年）的建筑风格与技术，以木结构为主，体现大一统帝国的宏伟与礼制",
+    "importance": 1,
+    "name": "汉代建筑",
+    "type": "concept",
+    "updated_at": "2026-04-10 18:11:26"
+  },
+  "量子力学": {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "authors": "Louis de Broglie",
+                    "children": [],
+                    "importance": 1,
+                    "name": "德布罗意论文",
+                    "quote": "Recherches sur la théorie des quanta",
+                    "type": "paper",
+                    "url": "",
+                    "year": 1924
+                  }
+                ],
+                "description": "物质波假设，粒子波长与动量成反比",
+                "importance": 1,
+                "name": "德布罗意波",
+                "type": "concept"
+              },
+              {
+                "children": [],
+                "description": "展示电子等粒子的干涉现象",
+                "importance": 2,
+                "name": "双缝实验",
+                "type": "concept"
+              }
+            ],
+            "description": "微观粒子同时具有波动和粒子特性",
+            "importance": 1,
+            "name": "波粒二象性",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "description": "用于求解能量本征态",
+                "importance": 1,
+                "name": "定态薛定谔方程",
+                "type": "concept"
+              },
+              {
+                "authors": "Erwin Schrödinger",
+                "children": [],
+                "importance": 2,
+                "name": "薛定谔论文",
+                "quote": "Quantisierung als Eigenwertproblem",
+                "type": "paper",
+                "url": "",
+                "year": 1926
+              }
+            ],
+            "description": "描述量子系统随时间演化的偏微分方程",
+            "importance": 2,
+            "name": "薛定谔方程",
+            "type": "concept"
+          },
+          {
+            "children": [],
+            "description": "位置和动量等共轭量不能同时精确测量",
+            "importance": 3,
+            "name": "海森堡不确定性原理",
+            "type": "concept"
+          }
+        ],
+        "description": "量子力学的基本原理和数学工具",
+        "importance": 1,
         "name": "基础概念",
         "type": "concept"
       },
@@ -160,37 +457,50 @@
             "children": [
               {
                 "children": [],
-                "description": "在自注意力基础上使用多头机制，增强表示能力",
-                "name": "多头自注意力",
+                "description": "波函数模平方在全空间积分为1",
+                "importance": 1,
+                "name": "归一化条件",
+                "type": "concept"
+              },
+              {
+                "children": [],
+                "description": "量子态可以线性叠加",
+                "importance": 2,
+                "name": "叠加原理",
                 "type": "concept"
               }
             ],
-            "description": "并行多个注意力头以捕捉不同子空间的信息",
-            "name": "多头注意力",
+            "description": "描述量子态的概率幅函数",
+            "importance": 1,
+            "name": "波函数",
             "type": "concept"
           },
           {
             "children": [
               {
                 "children": [],
-                "description": "限制注意力范围到局部窗口，适用于长序列",
-                "name": "局部注意力",
+                "description": "主流诠释，强调测量作用",
+                "importance": 1,
+                "name": "哥本哈根诠释",
                 "type": "concept"
               },
               {
                 "children": [],
-                "description": "沿不同轴应用注意力，用于高维数据如图像",
-                "name": "轴向注意力",
+                "description": "将测量视为系统与仪器的相互作用",
+                "importance": 2,
+                "name": "冯·诺依曼测量模型",
                 "type": "concept"
               }
             ],
-            "description": "减少计算复杂度，只关注部分输入元素",
-            "name": "稀疏注意力",
+            "description": "量子测量导致波函数坍缩",
+            "importance": 2,
+            "name": "测量理论",
             "type": "concept"
           }
         ],
-        "description": "注意力机制的改进和变体，提升性能或适应特定任务",
-        "name": "高级扩展",
+        "description": "量子系统的状态描述和观测过程",
+        "importance": 2,
+        "name": "量子态与测量",
         "type": "concept"
       },
       {
@@ -198,63 +508,136 @@
           {
             "children": [
               {
-                "authors": [
-                  "Jacob Devlin",
-                  "Ming-Wei Chang",
-                  "Kenton Lee",
-                  "Kristina Toutanova"
-                ],
                 "children": [],
-                "name": "BERT 模型",
-                "quote": "提出基于双向 Transformer 的预训练语言模型",
+                "description": "用右矢和左矢表示量子态",
+                "importance": 1,
+                "name": "狄拉克符号",
+                "type": "concept"
+              },
+              {
+                "authors": "Paul Dirac",
+                "children": [],
+                "importance": 2,
+                "name": "狄拉克论文",
+                "quote": "The Principles of Quantum Mechanics",
                 "type": "paper",
-                "url": "https://arxiv.org/abs/1810.04805",
-                "year": 2018
+                "url": "",
+                "year": 1930
               }
             ],
-            "description": "用于机器翻译、文本生成等任务",
-            "name": "自然语言处理",
+            "description": "量子态所在的完备内积空间",
+            "importance": 1,
+            "name": "希尔伯特空间",
             "type": "concept"
           },
           {
             "children": [
               {
-                "authors": [
-                  "Alexey Dosovitskiy",
-                  "Lucas Beyer",
-                  "Alexander Kolesnikov",
-                  "Dirk Weissenborn",
-                  "Xiaohua Zhai",
-                  "Thomas Unterthiner",
-                  "Mostafa Dehghani",
-                  "Matthias Minderer",
-                  "Georg Heigold",
-                  "Sylvain Gelly",
-                  "Jakob Uszkoreit",
-                  "Neil Houlsby"
-                ],
                 "children": [],
-                "name": "Vision Transformer",
-                "quote": "将 Transformer 应用于图像分类，直接处理图像块",
-                "type": "paper",
-                "url": "https://arxiv.org/abs/2010.11929",
-                "year": 2020
+                "description": "对应可观测物理量，本征值为实数",
+                "importance": 1,
+                "name": "厄米算符",
+                "type": "concept"
+              },
+              {
+                "children": [],
+                "description": "算符之间的代数关系",
+                "importance": 2,
+                "name": "对易关系",
+                "type": "concept"
               }
             ],
-            "description": "用于图像分类、目标检测等任务",
-            "name": "计算机视觉",
+            "description": "物理量对应线性算符",
+            "importance": 2,
+            "name": "算符理论",
             "type": "concept"
           }
         ],
-        "description": "注意力机制在深度学习中的主要应用场景",
-        "name": "应用领域",
+        "description": "量子力学的数学框架和公理化表述",
+        "importance": 3,
+        "name": "量子力学形式体系",
+        "type": "concept"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [],
+                "description": "薛定谔方程精确解，给出能级",
+                "importance": 1,
+                "name": "氢原子模型",
+                "type": "concept"
+              },
+              {
+                "children": [],
+                "description": "早期量子化原子模型",
+                "importance": 2,
+                "name": "玻尔模型",
+                "type": "concept"
+              }
+            ],
+            "description": "量子力学解释原子结构和光谱",
+            "importance": 1,
+            "name": "原子物理",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "description": "量子计算的基本单元",
+                "importance": 1,
+                "name": "量子比特",
+                "type": "concept"
+              },
+              {
+                "children": [],
+                "description": "非局域关联现象",
+                "importance": 2,
+                "name": "量子纠缠",
+                "type": "concept"
+              }
+            ],
+            "description": "基于量子力学原理的信息处理",
+            "importance": 2,
+            "name": "量子信息",
+            "type": "concept"
+          },
+          {
+            "children": [
+              {
+                "children": [],
+                "description": "将场量子化为产生和湮灭算符",
+                "importance": 1,
+                "name": "二次量子化",
+                "type": "concept"
+              },
+              {
+                "children": [],
+                "description": "相对论性量子力学方程",
+                "importance": 2,
+                "name": "狄拉克方程",
+                "type": "concept"
+              }
+            ],
+            "description": "量子力学与相对论结合的理论",
+            "importance": 3,
+            "name": "量子场论基础",
+            "type": "concept"
+          }
+        ],
+        "description": "量子力学在具体系统和现代物理中的应用",
+        "importance": 4,
+        "name": "应用与扩展",
         "type": "concept"
       }
     ],
-    "created_at": "2026-04-08 00:31:41",
-    "description": "深度学习中的一种动态加权机制，用于聚焦输入数据的关键部分",
-    "name": "注意力机制",
+    "created_at": "2026-04-10 18:13:12",
+    "description": "描述微观粒子行为的物理学理论",
+    "importance": 1,
+    "name": "量子力学",
     "type": "concept",
-    "updated_at": "2026-04-08 01:14:58"
+    "updated_at": "2026-04-10 18:13:12"
   }
 }

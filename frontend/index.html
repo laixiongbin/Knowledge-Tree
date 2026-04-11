@@ -3,21 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>知识树管理系统</title>
+    <title>知识树管理系统 · 无表情符号版</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
         body {
             background: linear-gradient(135deg, #f5f7fa 0%, #e9eef3 100%);
             font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             min-height: 100vh;
             padding: 24px;
         }
-
         .app-container {
             max-width: 1400px;
             margin: 0 auto;
@@ -27,15 +25,31 @@
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.2);
             padding: 1.5rem;
         }
-
-        /* 双栏布局 */
         .main-layout {
             display: flex;
             gap: 1.5rem;
             margin-bottom: 1.5rem;
         }
-
-        /* 左侧知识树列表 */
+        .float-expand-btn {
+            width: 36px;
+            height: 36px;
+            background: #3b82f6;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            border: 2px solid white;
+            transition: transform 0.1s, background 0.1s;
+        }
+        .float-expand-btn:hover {
+            transform: scale(1.1);
+            background: #2563eb;
+        }
         .tree-list-sidebar {
             width: 280px;
             background: white;
@@ -45,30 +59,25 @@
             flex-direction: column;
             overflow: hidden;
         }
-
         .sidebar-header {
             padding: 1rem 1.2rem;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
-
         .sidebar-header h3 {
             font-size: 1.1rem;
             margin-bottom: 0.25rem;
         }
-
         .sidebar-header p {
             font-size: 0.75rem;
             opacity: 0.9;
         }
-
         .tree-list-container {
             flex: 1;
             overflow-y: auto;
             padding: 0.8rem;
             max-height: 500px;
         }
-
         .tree-list-item {
             background: #f8fafc;
             border-radius: 0.75rem;
@@ -79,17 +88,14 @@
             border: 2px solid transparent;
             position: relative;
         }
-
         .tree-list-item:hover {
             background: #eef2ff;
             transform: translateX(3px);
         }
-
         .tree-list-item.active {
             background: #e0e7ff;
             border-color: #3b82f6;
         }
-
         .tree-item-title {
             font-weight: 600;
             color: #1e293b;
@@ -97,21 +103,18 @@
             font-size: 0.9rem;
             padding-right: 30px;
         }
-
         .tree-item-meta {
             font-size: 0.7rem;
             color: #64748b;
             display: flex;
             justify-content: space-between;
         }
-
         .badge-small {
             background: #cbd5e1;
             padding: 0.125rem 0.4rem;
             border-radius: 20px;
             font-size: 0.65rem;
         }
-
         .delete-tree-btn {
             position: absolute;
             top: 0.5rem;
@@ -126,21 +129,16 @@
             opacity: 0;
             transition: opacity 0.2s;
         }
-
         .tree-list-item:hover .delete-tree-btn {
             opacity: 1;
         }
-
         .delete-tree-btn:hover {
             background: #dc2626;
         }
-
-        /* 右侧主区域 */
         .right-panel {
             flex: 1;
             min-width: 0;
         }
-
         .control-bar {
             display: flex;
             gap: 0.75rem;
@@ -175,16 +173,25 @@
             white-space: nowrap;
         }
         .control-bar button:active { transform: scale(0.97); }
-
         .tree-canvas-container {
-            background: #ffffffcc;
-            backdrop-filter: blur(4px);
+            background: #000000;
             border-radius: 1.5rem;
             box-shadow: 0 20px 35px -12px rgba(0,0,0,0.15);
-            padding: 1rem;
+            padding: 0;
             margin-bottom: 1rem;
+            overflow: hidden;
+            position: relative;
+            cursor: grab;
         }
-
+        .tree-canvas-container:active {
+            cursor: grabbing;
+        }
+        #treeCanvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: black;
+        }
         .info-panel {
             background: white;
             border-radius: 1.5rem;
@@ -208,7 +215,6 @@
             font-size: 0.9rem;
             line-height: 1.5;
         }
-
         .pie-section {
             background: white;
             border-radius: 1.5rem;
@@ -221,15 +227,6 @@
             text-align: center;
             margin-bottom: 0.5rem;
         }
-
-        #treeCanvas {
-            width: 100%;
-            background: #fefefe;
-            border-radius: 1rem;
-            display: block;
-            cursor: pointer;
-        }
-
         .toast-message {
             position: fixed;
             bottom: 20px;
@@ -245,22 +242,52 @@
         .toast-success { background: #10b981; }
         .toast-error { background: #ef4444; }
         .toast-warning { background: #f59e0b; }
-
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
-
         @media (max-width: 900px) {
             .main-layout { flex-direction: column; }
             .tree-list-sidebar { width: 100%; max-height: 250px; }
+        }
+
+        /* 右键菜单样式 */
+        .context-menu {
+            position: fixed;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 4px 0;
+            z-index: 10000;
+            min-width: 140px;
+            display: none;
+        }
+        .context-menu-item {
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #1e293b;
+            transition: background 0.1s;
+        }
+        .context-menu-item:hover {
+            background: #f1f5f9;
+        }
+        .context-menu-item.danger {
+            color: #ef4444;
+        }
+        .context-menu-item.danger:hover {
+            background: #fee2e2;
+        }
+        .context-menu-divider {
+            height: 1px;
+            background: #e2e8f0;
+            margin: 4px 0;
         }
     </style>
 </head>
 <body>
 <div class="app-container">
     <div class="main-layout">
-        <!-- 左侧知识树列表 -->
         <div class="tree-list-sidebar">
             <div class="sidebar-header">
                 <h3>知识树库</h3>
@@ -273,20 +300,16 @@
                 <button id="refreshListBtn" style="width: 100%; background: #64748b; padding: 0.5rem;">刷新列表</button>
             </div>
         </div>
-
-        <!-- 右侧主区域 -->
         <div class="right-panel">
             <div class="control-bar">
-                <input type="text" id="keywordInput" placeholder="输入领域关键词，如 Transformer" value="神经网络">
+                <input type="text" id="keywordInput" placeholder="输入领域关键词，如 Transformer" value="注意力机制">
                 <button id="generateBtn">生成新树</button>
                 <button id="saveCurrentBtn" style="background: #10b981;">保存当前树</button>
                 <button id="deleteCurrentBtn" style="background: #ef4444;">删除当前树</button>
             </div>
-
-            <div class="tree-canvas-container">
-                <canvas id="treeCanvas" width="900" height="500" style="width:100%; height:auto;"></canvas>
+            <div class="tree-canvas-container" id="canvasContainer">
+                <canvas id="treeCanvas" width="900" height="500"></canvas>
             </div>
-
             <div class="info-panel">
                 <h3>节点详情</h3>
                 <div id="detailBox" class="node-detail">
@@ -295,270 +318,633 @@
             </div>
         </div>
     </div>
-
     <div class="pie-section">
         <h3>知识领域分布</h3>
         <canvas id="pieCanvas" width="500" height="200" style="width:100%; max-width:400px; margin:0 auto; display:block;"></canvas>
     </div>
 </div>
 
+<!-- 右键菜单（无表情符号） -->
+<div id="contextMenu" class="context-menu">
+    <div class="context-menu-item" id="expandNodeMenu">扩展子节点</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item danger" id="deleteNodeMenu">删除节点</div>
+</div>
+
 <script>
-    // ======================= 全局变量 =======================
-    let currentTreeData = null;
-    let currentTreeName = null;
-    let globalNodes = [];
-    let globalEdges = [];
-    let animationId = null;
-    let allTreesList = [];
+    (function(){
+        // ======================= 全局变量 =======================
+        let currentTreeData = null;
+        let currentTreeName = null;
+        let globalNodes = [];
+        let globalEdges = [];
+        let animationId = null;
+        let allTreesList = [];
 
-    // 物理参数
-    const ATTRACT_RADIUS = 55;
-    const MAX_OFFSET = 10;
-    const DAMPING = 0.97;
-    const SPRING_STRENGTH = 0.12;
-    const MAX_SPEED = 1.2;
-    const SETTLE_THRESHOLD = 0.05;
-    let currentHoverIntensity = 0;
-    let targetIntensity = 0;
-    const INTENSITY_SMOOTH = 0.22;
-    let mouseX = -1000, mouseY = -1000;
-    let hoveredNodeId = null;
+        let scale = 1.0;
+        let offsetX = 0, offsetY = 0;
+        let isPanning = false;
+        let panStart = { x: 0, y: 0 };
 
-    let canvas = document.getElementById('treeCanvas');
-    let ctx = canvas.getContext('2d');
+        const ATTRACT_RADIUS = 55;
+        const MAX_OFFSET = 10;
+        const DAMPING = 0.97;
+        const SPRING_STRENGTH = 0.12;
+        const MAX_SPEED = 1.2;
+        const SETTLE_THRESHOLD = 0.05;
+        let currentHoverIntensity = 0;
+        let targetIntensity = 0;
+        const INTENSITY_SMOOTH = 0.22;
+        let mouseX = -1000, mouseY = -1000;
+        let hoveredNodeId = null;
 
-    // API 基础地址
-    const API_BASE = 'http://127.0.0.1:5000';
+        let canvas = document.getElementById('treeCanvas');
+        let ctx = canvas.getContext('2d');
+        const API_BASE = 'http://127.0.0.1:5000';
 
-    // ======================= 辅助函数 =======================
-    function showToast(message, type = 'success') {
-        const toast = document.createElement('div');
-        toast.className = `toast-message toast-${type}`;
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
-    }
+        let floatContainer = null;
+        let contextMenuNode = null;
+        const contextMenu = document.getElementById('contextMenu');
 
-    // 生成节点ID
-    function genNodeId(node, parentPath = "") {
-        let path = parentPath ? `${parentPath}/${node.name}` : node.name;
-        return path.replace(/\s/g, '_').toLowerCase();
-    }
+        // ======================= 重要性辅助函数 =======================
+        function assignDefaultImportance(node, siblingIndex = 0) {
+            if (node.importance === undefined || node.importance === null) {
+                node.importance = siblingIndex + 1;
+            }
+            if (node.children && node.children.length) {
+                node.children.forEach((child, idx) => {
+                    assignDefaultImportance(child, idx);
+                });
+            }
+        }
 
-    // 构建图结构
-    function buildGraphFromTree(node, parentId = null, parentPath = "") {
-        let nodes = [];
-        let edges = [];
-        const currentId = genNodeId(node, parentPath);
-        const enriched = {
-            id: currentId,
-            name: node.name,
-            type: node.type || (node.children ? "branch" : "concept"),
-            description: node.description || (node.type === "paper" ? "经典论文" : "知识节点"),
-            authors: node.authors,
-            year: node.year,
-            quote: node.quote,
-            url: node.url
+        function getMaxImportanceInTree(node) {
+            let maxImp = node.importance || 1;
+            if (node.children) {
+                for (let child of node.children) {
+                    maxImp = Math.max(maxImp, getMaxImportanceInTree(child));
+                }
+            }
+            return maxImp;
+        }
+
+        // ======================= 辅助函数 =======================
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast-message toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function buildGraphFromTree(node, parentId = null, parentPath = "") {
+            if (!node || !node.name) return { nodes: [], edges: [] };
+            let nodes = [];
+            let edges = [];
+            const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+            const currentId = currentPath.replace(/\s/g, '_').toLowerCase();
+            const enriched = {
+                id: currentId,
+                path: currentPath,
+                name: node.name,
+                type: node.type || (node.children ? "branch" : "concept"),
+                description: node.description || (node.type === "paper" ? "经典论文" : "知识节点"),
+                authors: node.authors,
+                year: node.year,
+                quote: node.quote,
+                url: node.url,
+                importance: node.importance
+            };
+            nodes.push(enriched);
+            if (parentId) edges.push({ from: parentId, to: currentId });
+            if (node.children && node.children.length) {
+                for (let child of node.children) {
+                    const childRes = buildGraphFromTree(child, currentId, currentPath);
+                    nodes.push(...childRes.nodes);
+                    edges.push(...childRes.edges);
+                }
+            }
+            return { nodes, edges };
+        }
+
+        function getMaxDepth(nodes, edges) {
+            const childrenMap = new Map();
+            edges.forEach(edge => {
+                if (!childrenMap.has(edge.from)) childrenMap.set(edge.from, []);
+                childrenMap.get(edge.from).push(edge.to);
+            });
+            let maxDepth = 0;
+            const dfs = (nodeId, depth) => {
+                maxDepth = Math.max(maxDepth, depth);
+                const kids = childrenMap.get(nodeId) || [];
+                kids.forEach(kid => dfs(kid, depth + 1));
+            };
+            const hasParent = new Set(edges.map(e => e.to));
+            let rootId = nodes.find(n => !hasParent.has(n.id))?.id;
+            if (rootId) dfs(rootId, 1);
+            return maxDepth;
+        }
+
+        function computeStaticLayout(nodes, edges, canvasWidth, canvasHeight) {
+            const childrenMap = new Map();
+            edges.forEach(edge => {
+                if (!childrenMap.has(edge.from)) childrenMap.set(edge.from, []);
+                childrenMap.get(edge.from).push(edge.to);
+            });
+            const hasParent = new Set(edges.map(e => e.to));
+            let rootId = nodes.find(n => !hasParent.has(n.id))?.id;
+            if (!rootId && nodes.length) rootId = nodes[0].id;
+
+            function getSubtreeSize(nodeId) {
+                let size = 1;
+                const kids = childrenMap.get(nodeId) || [];
+                for (let kid of kids) size += getSubtreeSize(kid);
+                return size;
+            }
+
+            const positions = new Map();
+            const startX = 70;
+            const levelGap = 130;
+            const verticalPadding = 45;
+
+            function assignPositions(nodeId, depth, topY, bottomY) {
+                const kids = childrenMap.get(nodeId) || [];
+                const totalSub = kids.reduce((sum, kid) => sum + getSubtreeSize(kid), 0);
+                const xPos = startX + depth * levelGap;
+                const selfY = (topY + bottomY) / 2;
+                positions.set(nodeId, { x: xPos, y: selfY });
+                let accY = topY;
+                for (let kid of kids) {
+                    const kidSize = getSubtreeSize(kid);
+                    const kidTop = accY;
+                    const kidBottom = accY + (kidSize / totalSub) * (bottomY - topY);
+                    assignPositions(kid, depth + 1, kidTop, kidBottom);
+                    accY = kidBottom;
+                }
+            }
+
+            assignPositions(rootId, 0, verticalPadding, canvasHeight - verticalPadding);
+
+            return nodes.map(node => {
+                const pos = positions.get(node.id);
+                if (pos) return { ...node, baseX: pos.x, baseY: pos.y, x: pos.x, y: pos.y, vx: 0, vy: 0 };
+                return { ...node, baseX: 100, baseY: 100, x: 100, y: 100, vx: 0, vy: 0 };
+            });
+        }
+
+        function renderPieChart(nodes) {
+            const pieCanvas = document.getElementById('pieCanvas');
+            if (!pieCanvas) return;
+            const ctx = pieCanvas.getContext('2d');
+            const w = pieCanvas.clientWidth, h = pieCanvas.clientHeight;
+            pieCanvas.width = w; pieCanvas.height = h;
+            const categories = { "机器学习": 0, "深度学习": 0, "视觉": 0, "NLP": 0, "其他": 0 };
+            nodes.forEach(node => {
+                const name = node.name;
+                if (name.includes("机器") || name.includes("监督") || name.includes("强化")) categories["机器学习"]++;
+                else if (name.includes("深度") || name.includes("CNN") || name.includes("Transformer") || name.includes("BERT")) categories["深度学习"]++;
+                else if (name.includes("视觉") || name.includes("检测") || name.includes("图像")) categories["视觉"]++;
+                else if (name.includes("语言") || name.includes("NLP") || name.includes("情感") || name.includes("翻译")) categories["NLP"]++;
+                else categories["其他"]++;
+            });
+            const data = Object.entries(categories).filter(([_,v]) => v > 0);
+            if (data.length === 0) return;
+            const total = data.reduce((s,d) => s+d[1], 0);
+            let startAngle = -Math.PI/2;
+            const colors = ["#3b82f6", "#8b5cf6", "#ef4444", "#10b981", "#f59e0b"];
+            ctx.clearRect(0, 0, w, h);
+            const centerX = w/2, centerY = h/2, radius = Math.min(w,h)*0.35;
+            data.forEach(([label, val], idx) => {
+                const angle = (val/total) * Math.PI*2;
+                const endAngle = startAngle + angle;
+                ctx.beginPath();
+                ctx.fillStyle = colors[idx % colors.length];
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.fill();
+                const mid = startAngle + angle/2;
+                const labelX = centerX + (radius*0.7)*Math.cos(mid);
+                const labelY = centerY + (radius*0.7)*Math.sin(mid);
+                ctx.fillStyle = "#1f2937";
+                ctx.font = "bold 10px Inter";
+                ctx.fillText(`${label} ${Math.round(val/total*100)}%`, labelX-18, labelY-4);
+                startAngle = endAngle;
+            });
+        }
+
+        function drawDotGrid() {
+            const gridSize = 40;
+            const dotRadius = 1.2;
+            const topLeft = { x: -offsetX / scale, y: -offsetY / scale };
+            const bottomRight = {
+                x: (canvas.width - offsetX) / scale,
+                y: (canvas.height - offsetY) / scale
+            };
+            const startX = Math.floor(topLeft.x / gridSize) * gridSize;
+            const endX = Math.ceil(bottomRight.x / gridSize) * gridSize;
+            const startY = Math.floor(topLeft.y / gridSize) * gridSize;
+            const endY = Math.ceil(bottomRight.y / gridSize) * gridSize;
+
+            ctx.fillStyle = "rgba(180, 180, 200, 0.5)";
+            for (let x = startX; x <= endX; x += gridSize) {
+                for (let y = startY; y <= endY; y += gridSize) {
+                    ctx.beginPath();
+                    ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function refreshTreeLayout() {
+            if (!currentTreeData) return;
+            assignDefaultImportance(currentTreeData);
+            const maxImpGlobal = getMaxImportanceInTree(currentTreeData);
+            window._currentMaxImportance = maxImpGlobal;
+
+            const { nodes, edges } = buildGraphFromTree(currentTreeData);
+            globalEdges = edges;
+            const maxDepth = getMaxDepth(nodes, edges);
+            const levelGap = 130;
+            const baseWidth = 400;
+            const dynamicWidth = Math.max(baseWidth + (maxDepth - 1) * levelGap, 700);
+            canvas.width = dynamicWidth;
+            canvas.height = 480;
+            canvas.style.width = `${dynamicWidth}px`;
+            canvas.style.maxWidth = '100%';
+            document.getElementById('canvasContainer').style.overflowX = 'auto';
+            const positioned = computeStaticLayout(nodes, edges, canvas.width, canvas.height);
+            globalNodes = positioned;
+            renderPieChart(globalNodes);
+        }
+
+        function loadTreeData(treeData, treeName) {
+            if (!treeData) return;
+            currentTreeData = JSON.parse(JSON.stringify(treeData));
+            assignDefaultImportance(currentTreeData);
+            currentTreeName = treeName || treeData.name;
+            refreshTreeLayout();
+            hoveredNodeId = null;
+            scale = 1.0;
+            offsetX = 0;
+            offsetY = 0;
+            mouseX = -1000;
+            targetIntensity = 0;
+            currentHoverIntensity = 0;
+            document.querySelector('.control-bar input').placeholder = `当前: ${currentTreeName}`;
+            hideFloatButtons();
+            hideContextMenu();
+        }
+
+        function findNodeByPath(pathOrId, treeNode, currentPath = "") {
+            const nodePath = currentPath ? `${currentPath}/${treeNode.name}` : treeNode.name;
+            const nodeId = nodePath.replace(/\//g, '_').toLowerCase();
+            let clean = pathOrId.trim();
+            if (clean.startsWith('/')) clean = clean.slice(1);
+            if (clean.endsWith('/')) clean = clean.slice(0, -1);
+            const cleanId = clean.replace(/\//g, '_').toLowerCase();
+            if (nodePath === clean || nodeId === cleanId || nodePath === pathOrId || nodeId === pathOrId) {
+                return treeNode;
+            }
+            if (treeNode.children) {
+                for (let child of treeNode.children) {
+                    const found = findNodeByPath(pathOrId, child, nodePath);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        function findNodeByName(name, treeNode) {
+            if (treeNode.name === name) return treeNode;
+            if (treeNode.children) {
+                for (let child of treeNode.children) {
+                    const found = findNodeByName(name, child);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        // ======================= 扩展节点 =======================
+        async function expandNode(node) {
+            if (!currentTreeData) return;
+            showToast(`正在为 "${node.name}" 生成子节点...`, 'warning');
+            let targetNode = findNodeByPath(node.id, currentTreeData);
+            if (!targetNode) {
+                targetNode = findNodeByName(node.name, currentTreeData);
+            }
+            if (!targetNode) {
+                showToast('未找到目标节点', 'error');
+                return;
+            }
+            try {
+                const payload = {
+                    parent_name: node.name,
+                    parent_path: node.id,
+                    tree_name: currentTreeName
+                };
+                const response = await fetch(`${API_BASE}/expand`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const result = await response.json();
+                let children = [];
+                if (result.code === 200 && result.children) children = result.children;
+                else if (Array.isArray(result)) children = result;
+                else throw new Error('后端返回格式错误');
+                if (!children.length) {
+                    showToast('未生成任何子节点', 'warning');
+                    return;
+                }
+                if (!targetNode.children) targetNode.children = [];
+                const existingNames = new Set(targetNode.children.map(c => c.name));
+                const newChildren = children.filter(c => !existingNames.has(c.name));
+                if (newChildren.length === 0) {
+                    showToast('子节点已存在，未添加新节点', 'info');
+                    return;
+                }
+                targetNode.children.push(...newChildren);
+                assignDefaultImportance(targetNode);
+                refreshTreeLayout();
+                currentTreeData.updated_at = new Date().toISOString();
+                showToast(`成功添加 ${newChildren.length} 个子节点`, 'success');
+            } catch (error) {
+                console.error('扩展失败:', error);
+                showToast('后端扩展接口不可用，使用本地模拟扩展', 'warning');
+                if (!targetNode.children) targetNode.children = [];
+                const mockChildren = [
+                    { name: `${node.name} 子概念1`, type: 'concept', description: '模拟子节点' },
+                    { name: `${node.name} 子概念2`, type: 'concept', description: '模拟子节点' },
+                    { name: `相关论文`, type: 'paper', authors: '模拟', year: '2024', quote: '占位' }
+                ];
+                targetNode.children.push(...mockChildren);
+                assignDefaultImportance(targetNode);
+                refreshTreeLayout();
+                showToast('已添加模拟子节点', 'success');
+            } finally {
+                hideFloatButtons();
+                contextMenuNode = null;
+            }
+        }
+
+        // ======================= 删除节点 =======================
+        async function deleteNodeFrontend(node) {
+            const hasParent = globalEdges.some(edge => edge.to === node.id);
+            if (!hasParent) {
+                showToast('根节点不可删除，如需删除请删除整个知识树', 'error');
+                return;
+            }
+
+            if (!confirm(`确定要删除节点 "${node.name}" 及其所有子节点吗？此操作不可撤销！`)) return;
+
+            const pathParts = node.path.split('/');
+            const nodeName = pathParts.pop();
+            const parentPath = pathParts.join('/');
+
+            let parentNode = null;
+            if (parentPath) {
+                parentNode = findNodeByPath(parentPath, currentTreeData);
+            } else {
+                parentNode = currentTreeData;
+            }
+
+            if (!parentNode || !parentNode.children) {
+                showToast('未找到父节点，删除失败', 'error');
+                return;
+            }
+
+            const initialLength = parentNode.children.length;
+            parentNode.children = parentNode.children.filter(child => child.name !== nodeName);
+
+            if (parentNode.children.length === initialLength) {
+                showToast(`未找到名为 "${nodeName}" 的子节点`, 'error');
+                return;
+            }
+
+            currentTreeData.updated_at = new Date().toISOString();
+            refreshTreeLayout();
+
+            try {
+                const response = await fetch(`${API_BASE}/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentTreeData)
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast(`节点 "${nodeName}" 已删除并保存`, 'success');
+                    await loadTreesList();
+                } else {
+                    showToast(result.message || '保存失败', 'error');
+                    await selectTree(currentTreeName);
+                }
+            } catch (error) {
+                showToast('保存失败: ' + error.message, 'error');
+                await selectTree(currentTreeName);
+            }
+        }
+
+        // ======================= 悬浮按钮 =======================
+        function showFloatButtons(screenX, screenY, node) {
+            hideFloatButtons();
+
+            const container = document.createElement('div');
+            container.style.cssText = `
+                position: fixed;
+                left: ${screenX + 10}px;
+                top: ${screenY - 20}px;
+                display: flex;
+                gap: 8px;
+                z-index: 99999;
+            `;
+            floatContainer = container;
+
+            const expandBtn = document.createElement('div');
+            expandBtn.className = 'float-expand-btn';
+            expandBtn.innerHTML = '+';
+            expandBtn.onclick = (e) => {
+                e.stopPropagation();
+                expandNode(node);
+                container.remove();
+                floatContainer = null;
+            };
+
+            const deleteBtn = document.createElement('div');
+            deleteBtn.className = 'float-expand-btn';
+            deleteBtn.innerHTML = '−';
+            deleteBtn.style.background = '#ef4444';
+            deleteBtn.onmouseover = () => deleteBtn.style.background = '#dc2626';
+            deleteBtn.onmouseout = () => deleteBtn.style.background = '#ef4444';
+            deleteBtn.onclick = async (e) => {
+                e.stopPropagation();
+                container.remove();
+                floatContainer = null;
+                await deleteNodeFrontend(node);
+            };
+
+            container.appendChild(expandBtn);
+            container.appendChild(deleteBtn);
+            document.body.appendChild(container);
+
+            setTimeout(() => {
+                const removeHandler = (e) => {
+                    if (container && !container.contains(e.target)) {
+                        container.remove();
+                        floatContainer = null;
+                        document.removeEventListener('click', removeHandler);
+                    }
+                };
+                document.addEventListener('click', removeHandler);
+            }, 300);
+        }
+
+        function hideFloatButtons() {
+            if (floatContainer && floatContainer.parentNode) {
+                floatContainer.remove();
+                floatContainer = null;
+            }
+        }
+
+        // ======================= 右键菜单 =======================
+        function showContextMenu(x, y, node) {
+            contextMenuNode = node;
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = x + 'px';
+            contextMenu.style.top = y + 'px';
+        }
+
+        function hideContextMenu() {
+            contextMenu.style.display = 'none';
+            contextMenuNode = null;
+        }
+
+        // ======================= API 交互 =======================
+        async function loadTreesList() {
+            try {
+                const response = await fetch(`${API_BASE}/api/trees`);
+                const result = await response.json();
+                if (result.code === 200) {
+                    allTreesList = result.data;
+                    renderTreeList(allTreesList);
+                    document.getElementById('treeCount').textContent = `共 ${result.total} 个知识树`;
+                }
+            } catch (error) {
+                console.error('加载列表失败:', error);
+                document.getElementById('treeListContainer').innerHTML = '<div style="text-align: center; color: #ef4444;">连接后端失败</div>';
+            }
+        }
+
+        function renderTreeList(trees) {
+            const container = document.getElementById('treeListContainer');
+            if (!trees || trees.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #94a3b8;">暂无保存的知识树<br>点击"生成新树"并保存</div>';
+                return;
+            }
+            container.innerHTML = trees.map(tree => `
+                <div class="tree-list-item ${currentTreeName === tree.name ? 'active' : ''}" data-tree-name="${escapeHtml(tree.name)}">
+                    <div class="tree-item-title">${escapeHtml(tree.title)}</div>
+                    <div class="tree-item-meta">
+                        <span>节点: ${tree.node_count}</span>
+                        <span>更新: ${formatDate(tree.updated_at)}</span>
+                    </div>
+                    <div class="tree-item-meta" style="margin-top: 4px;">
+                        <span class="badge-small">${tree.type}</span>
+                        <span style="font-size: 0.65rem;">${tree.preview || ''}</span>
+                    </div>
+                    <button class="delete-tree-btn" onclick="deleteTreeFromList('${escapeHtml(tree.name)}', event)">删除</button>
+                </div>
+            `).join('');
+            document.querySelectorAll('.tree-list-item').forEach(item => {
+                const treeName = item.getAttribute('data-tree-name');
+                item.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('delete-tree-btn')) return;
+                    selectTree(treeName);
+                });
+            });
+        }
+
+        window.deleteTreeFromList = async function(treeName, event) {
+            event.stopPropagation();
+            if (!confirm(`确定要删除知识树 "${treeName}" 吗？此操作不可撤销！`)) return;
+            try {
+                const response = await fetch(`${API_BASE}/api/tree/${encodeURIComponent(treeName)}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast(result.message, 'success');
+                    if (currentTreeName === treeName) {
+                        currentTreeData = null;
+                        currentTreeName = null;
+                        globalNodes = [];
+                        globalEdges = [];
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        document.getElementById('detailBox').innerHTML = '<div style="text-align: center; color: #94a3b8;">点击任意节点查看详细信息</div>';
+                        document.querySelector('.control-bar input').placeholder = '输入领域关键词，如 Transformer';
+                    }
+                    await loadTreesList();
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (error) {
+                showToast('删除失败: ' + error.message, 'error');
+            }
         };
-        nodes.push(enriched);
-        if (parentId) {
-            edges.push({ from: parentId, to: currentId });
-        }
-        if (node.children && node.children.length) {
-            for (let child of node.children) {
-                const childRes = buildGraphFromTree(child, currentId, `${parentPath}/${node.name}`);
-                nodes.push(...childRes.nodes);
-                edges.push(...childRes.edges);
+
+        window.selectTree = async function(treeName) {
+            try {
+                const response = await fetch(`${API_BASE}/api/tree/${encodeURIComponent(treeName)}`);
+                const result = await response.json();
+                if (result.code === 200) {
+                    loadTreeData(result.data, treeName);
+                    showToast(`已切换到: ${treeName}`, 'success');
+                    document.querySelectorAll('.tree-list-item').forEach(el => el.classList.remove('active'));
+                    const activeItem = document.querySelector(`.tree-list-item[data-tree-name="${treeName}"]`);
+                    if (activeItem) activeItem.classList.add('active');
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (error) {
+                showToast('加载失败: ' + error.message, 'error');
             }
-        }
-        return { nodes, edges };
-    }
+        };
 
-    // 计算静态布局
-    function computeStaticLayout(nodes, edges, canvasWidth, canvasHeight) {
-        const childrenMap = new Map();
-        edges.forEach(edge => {
-            if (!childrenMap.has(edge.from)) childrenMap.set(edge.from, []);
-            childrenMap.get(edge.from).push(edge.to);
-        });
-        const hasParent = new Set(edges.map(e => e.to));
-        let rootId = nodes.find(n => !hasParent.has(n.id))?.id;
-        if (!rootId && nodes.length) rootId = nodes[0].id;
-
-        function getSubtreeSize(nodeId) {
-            let size = 1;
-            const kids = childrenMap.get(nodeId) || [];
-            for (let kid of kids) size += getSubtreeSize(kid);
-            return size;
-        }
-
-        const positions = new Map();
-        const startX = 70;
-        const levelGap = 130;
-        const verticalPadding = 45;
-
-        function assignPositions(nodeId, depth, topY, bottomY) {
-            const kids = childrenMap.get(nodeId) || [];
-            const totalSub = kids.reduce((sum, kid) => sum + getSubtreeSize(kid), 0);
-            const xPos = startX + depth * levelGap;
-            const selfY = (topY + bottomY) / 2;
-            positions.set(nodeId, { x: xPos, y: selfY });
-            let accY = topY;
-            for (let kid of kids) {
-                const kidSize = getSubtreeSize(kid);
-                const kidTop = accY;
-                const kidBottom = accY + (kidSize / totalSub) * (bottomY - topY);
-                assignPositions(kid, depth + 1, kidTop, kidBottom);
-                accY = kidBottom;
+        async function saveCurrentTree() {
+            if (!currentTreeData) {
+                showToast('没有可保存的知识树', 'error');
+                return;
+            }
+            try {
+                const response = await fetch(`${API_BASE}/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentTreeData)
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast(result.message, 'success');
+                    await loadTreesList();
+                    currentTreeName = currentTreeData.name;
+                    document.querySelector('.control-bar input').placeholder = `当前: ${currentTreeName}`;
+                } else {
+                    showToast(result.message, 'error');
+                }
+            } catch (error) {
+                showToast('保存失败: ' + error.message, 'error');
             }
         }
 
-        assignPositions(rootId, 0, verticalPadding, canvasHeight - verticalPadding);
-
-        return nodes.map(node => {
-            const pos = positions.get(node.id);
-            if (pos) {
-                return { ...node, baseX: pos.x, baseY: pos.y, x: pos.x, y: pos.y, vx: 0, vy: 0 };
+        async function deleteCurrentTree() {
+            if (!currentTreeName) {
+                showToast('没有选中的知识树', 'warning');
+                return;
             }
-            return { ...node, baseX: 100, baseY: 100, x: 100, y: 100, vx: 0, vy: 0 };
-        });
-    }
-
-    // 渲染饼图
-    function renderPieChart(nodes) {
-        const pieCanvas = document.getElementById('pieCanvas');
-        if (!pieCanvas) return;
-        const ctx = pieCanvas.getContext('2d');
-        const w = pieCanvas.clientWidth, h = pieCanvas.clientHeight;
-        pieCanvas.width = w; pieCanvas.height = h;
-        
-        const categories = { "机器学习": 0, "深度学习": 0, "视觉": 0, "NLP": 0, "其他": 0 };
-        nodes.forEach(node => {
-            const name = node.name;
-            if (name.includes("机器") || name.includes("监督") || name.includes("强化")) categories["机器学习"]++;
-            else if (name.includes("深度") || name.includes("CNN") || name.includes("Transformer") || name.includes("BERT")) categories["深度学习"]++;
-            else if (name.includes("视觉") || name.includes("检测") || name.includes("图像")) categories["视觉"]++;
-            else if (name.includes("语言") || name.includes("NLP") || name.includes("情感") || name.includes("翻译")) categories["NLP"]++;
-            else categories["其他"]++;
-        });
-        
-        const data = Object.entries(categories).filter(([_,v]) => v > 0);
-        if (data.length === 0) return;
-        const total = data.reduce((s,d) => s+d[1], 0);
-        let startAngle = -Math.PI/2;
-        const colors = ["#3b82f6", "#8b5cf6", "#ef4444", "#10b981", "#f59e0b"];
-        ctx.clearRect(0, 0, w, h);
-        const centerX = w/2, centerY = h/2, radius = Math.min(w,h)*0.35;
-        data.forEach(([label, val], idx) => {
-            const angle = (val/total) * Math.PI*2;
-            const endAngle = startAngle + angle;
-            ctx.beginPath();
-            ctx.fillStyle = colors[idx % colors.length];
-            ctx.moveTo(centerX, centerY);
-            ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-            ctx.fill();
-            const mid = startAngle + angle/2;
-            const labelX = centerX + (radius*0.7)*Math.cos(mid);
-            const labelY = centerY + (radius*0.7)*Math.sin(mid);
-            ctx.fillStyle = "#1f2937";
-            ctx.font = "bold 10px Inter";
-            ctx.fillText(`${label} ${Math.round(val/total*100)}%`, labelX-18, labelY-4);
-            startAngle = endAngle;
-        });
-    }
-
-    // 加载树数据到画布
-    function loadTreeData(treeData, treeName) {
-        if (!treeData) return;
-        currentTreeData = JSON.parse(JSON.stringify(treeData)); // 深拷贝
-        currentTreeName = treeName || treeData.name;
-        const { nodes, edges } = buildGraphFromTree(currentTreeData);
-        globalEdges = edges;
-        const container = canvas.parentElement;
-        const newWidth = Math.min(container.clientWidth - 30, 1000);
-        canvas.width = newWidth;
-        canvas.height = 480;
-        canvas.style.width = `${newWidth}px`;
-        const positioned = computeStaticLayout(nodes, edges, canvas.width, canvas.height);
-        globalNodes = positioned;
-        renderPieChart(globalNodes);
-        hoveredNodeId = null;
-        mouseX = -1000;
-        targetIntensity = 0;
-        currentHoverIntensity = 0;
-        
-        // 更新标题显示
-        document.querySelector('.control-bar input').placeholder = `当前: ${currentTreeName}`;
-    }
-
-    // ======================= API 交互 =======================
-    // 获取所有知识树列表
-    async function loadTreesList() {
-        try {
-            const response = await fetch(`${API_BASE}/api/trees`);
-            const result = await response.json();
-            if (result.code === 200) {
-                allTreesList = result.data;
-                renderTreeList(allTreesList);
-                document.getElementById('treeCount').textContent = `共 ${result.total} 个知识树`;
-            }
-        } catch (error) {
-            console.error('加载列表失败:', error);
-            document.getElementById('treeListContainer').innerHTML = '<div style="text-align: center; color: #ef4444;">连接后端失败</div>';
-        }
-    }
-
-    // 渲染左侧列表
-    function renderTreeList(trees) {
-        const container = document.getElementById('treeListContainer');
-        if (!trees || trees.length === 0) {
-            container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #94a3b8;">暂无保存的知识树<br>点击"生成新树"并保存</div>';
-            return;
-        }
-        
-        container.innerHTML = trees.map(tree => `
-            <div class="tree-list-item ${currentTreeName === tree.name ? 'active' : ''}" data-tree-name="${escapeHtml(tree.name)}">
-                <div class="tree-item-title">${escapeHtml(tree.title)}</div>
-                <div class="tree-item-meta">
-                    <span>节点: ${tree.node_count}</span>
-                    <span>更新: ${formatDate(tree.updated_at)}</span>
-                </div>
-                <div class="tree-item-meta" style="margin-top: 4px;">
-                    <span class="badge-small">${tree.type}</span>
-                    <span style="font-size: 0.65rem;">${tree.preview || ''}</span>
-                </div>
-                <button class="delete-tree-btn" onclick="deleteTreeFromList('${escapeHtml(tree.name)}', event)">删除</button>
-            </div>
-        `).join('');
-        
-        // 重新绑定点击事件
-        document.querySelectorAll('.tree-list-item').forEach(item => {
-            const treeName = item.getAttribute('data-tree-name');
-            item.addEventListener('click', (e) => {
-                if (e.target.classList.contains('delete-tree-btn')) return;
-                selectTree(treeName);
-            });
-        });
-    }
-
-    // 从列表中删除知识树
-    window.deleteTreeFromList = async function(treeName, event) {
-        event.stopPropagation();
-        
-        if (!confirm(`确定要删除知识树 "${treeName}" 吗？此操作不可撤销！`)) {
-            return;
-        }
-        
-        try {
-            const response = await fetch(`${API_BASE}/api/tree/${encodeURIComponent(treeName)}`, {
-                method: 'DELETE'
-            });
-            const result = await response.json();
-            
-            if (response.ok) {
-                showToast(result.message, 'success');
-                // 如果删除的是当前显示的树，清空显示
-                if (currentTreeName === treeName) {
+            if (!confirm(`确定要删除知识树 "${currentTreeName}" 吗？此操作不可撤销！`)) return;
+            try {
+                const response = await fetch(`${API_BASE}/api/tree/${encodeURIComponent(currentTreeName)}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast(result.message, 'success');
                     currentTreeData = null;
                     currentTreeName = null;
                     globalNodes = [];
@@ -566,410 +952,449 @@
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     document.getElementById('detailBox').innerHTML = '<div style="text-align: center; color: #94a3b8;">点击任意节点查看详细信息</div>';
                     document.querySelector('.control-bar input').placeholder = '输入领域关键词，如 Transformer';
+                    await loadTreesList();
+                } else {
+                    showToast(result.message, 'error');
                 }
-                await loadTreesList();
-            } else {
-                showToast(result.message, 'error');
+            } catch (error) {
+                showToast('删除失败: ' + error.message, 'error');
             }
-        } catch (error) {
-            showToast('删除失败: ' + error.message, 'error');
         }
-    };
 
-    // 选择知识树
-    window.selectTree = async function(treeName) {
-        try {
-            const response = await fetch(`${API_BASE}/api/tree/${encodeURIComponent(treeName)}`);
-            const result = await response.json();
-            if (result.code === 200) {
-                loadTreeData(result.data, treeName);
-                showToast(`已切换到: ${treeName}`, 'success');
-                // 更新高亮
-                document.querySelectorAll('.tree-list-item').forEach(el => el.classList.remove('active'));
-                const activeItem = document.querySelector(`.tree-list-item[data-tree-name="${treeName}"]`);
-                if (activeItem) activeItem.classList.add('active');
-            } else {
-                showToast(result.message, 'error');
+        async function generateNewTree() {
+            const keyword = document.getElementById('keywordInput').value.trim();
+            if (!keyword) {
+                showToast('请输入关键词', 'error');
+                return;
             }
-        } catch (error) {
-            showToast('加载失败: ' + error.message, 'error');
-        }
-    };
-
-    // 保存当前知识树
-    async function saveCurrentTree() {
-        if (!currentTreeData) {
-            showToast('没有可保存的知识树', 'error');
-            return;
-        }
-        
-        try {
-            const response = await fetch(`${API_BASE}/save`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(currentTreeData)
-            });
-            const result = await response.json();
-            if (response.ok) {
-                showToast(result.message, 'success');
-                await loadTreesList(); // 刷新列表
-                // 更新当前树的名称
-                currentTreeName = currentTreeData.name;
-                document.querySelector('.control-bar input').placeholder = `当前: ${currentTreeName}`;
-            } else {
-                showToast(result.message, 'error');
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            btn.innerHTML = '生成中...';
+            try {
+                const response = await fetch(`${API_BASE}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keyword: keyword })
+                });
+                if (!response.ok) throw new Error('生成失败');
+                const treeData = await response.json();
+                if (treeData && treeData.name) {
+                    loadTreeData(treeData, treeData.name);
+                    showToast(`知识树 "${treeData.name}" 生成成功！请点击"保存当前树"按钮保存`, 'success');
+                } else {
+                    throw new Error('返回数据格式错误');
+                }
+            } catch (error) {
+                console.error('生成失败:', error);
+                const defaultTree = {
+                    name: keyword,
+                    type: "root",
+                    description: `关于 "${keyword}" 的知识脉络`,
+                    children: [
+                        { name: `${keyword} 基础概念`, type: "concept", description: "核心基础知识", children: [
+                            { name: "定义与原理", type: "concept", description: "基本定义和原理" },
+                            { name: "历史发展", type: "concept", description: "重要历史节点" }
+                        ] },
+                        { name: `${keyword} 进阶知识`, type: "concept", description: "深入理解", children: [
+                            { name: "核心算法/方法", type: "concept", description: "关键方法", children: [
+                                { name: "方法一", type: "concept", description: "方法一详解" },
+                                { name: "方法二", type: "concept", description: "方法二详解" }
+                            ] }
+                        ] },
+                        { name: "应用与实践", type: "concept", description: "实际应用案例" }
+                    ]
+                };
+                loadTreeData(defaultTree, keyword);
+                showToast(`使用本地数据生成 "${keyword}"，请点击"保存当前树"保存`, 'warning');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '生成新树';
             }
-        } catch (error) {
-            showToast('保存失败: ' + error.message, 'error');
         }
-    }
 
-    // 删除当前知识树
-    async function deleteCurrentTree() {
-        if (!currentTreeName) {
-            showToast('没有选中的知识树', 'warning');
-            return;
-        }
-        
-        if (!confirm(`确定要删除知识树 "${currentTreeName}" 吗？此操作不可撤销！`)) {
-            return;
-        }
-        
-        try {
-            const response = await fetch(`${API_BASE}/api/tree/${encodeURIComponent(currentTreeName)}`, {
-                method: 'DELETE'
-            });
-            const result = await response.json();
-            
-            if (response.ok) {
-                showToast(result.message, 'success');
-                // 清空当前显示
-                currentTreeData = null;
-                currentTreeName = null;
-                globalNodes = [];
-                globalEdges = [];
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                document.getElementById('detailBox').innerHTML = '<div style="text-align: center; color: #94a3b8;">点击任意节点查看详细信息</div>';
-                document.querySelector('.control-bar input').placeholder = '输入领域关键词，如 Transformer';
-                await loadTreesList();
-            } else {
-                showToast(result.message, 'error');
-            }
-        } catch (error) {
-            showToast('删除失败: ' + error.message, 'error');
-        }
-    }
-
-    // 生成新知识树（不自动保存）
-    async function generateNewTree() {
-        const keyword = document.getElementById('keywordInput').value.trim();
-        if (!keyword) {
-            showToast('请输入关键词', 'error');
-            return;
-        }
-        
-        const btn = document.getElementById('generateBtn');
-        btn.disabled = true;
-        btn.innerHTML = '生成中...';
-        
-        try {
-            const response = await fetch(`${API_BASE}/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ keyword: keyword })
-            });
-            
-            if (!response.ok) throw new Error('生成失败');
-            const treeData = await response.json();
-            
-            if (treeData && treeData.name) {
-                loadTreeData(treeData, treeData.name);
-                showToast(`知识树 "${treeData.name}" 生成成功！请点击"保存当前树"按钮保存`, 'success');
-            } else {
-                throw new Error('返回数据格式错误');
-            }
-        } catch (error) {
-            console.error('生成失败:', error);
-            // 使用默认数据
-            const defaultTree = {
-                name: keyword,
-                type: "root",
-                children: [
-                    { name: `${keyword} 基础`, type: "concept", description: "基础知识" },
-                    { name: `${keyword} 进阶`, type: "concept", children: [
-                        { name: "核心算法", type: "paper", quote: "前沿研究" }
-                    ] },
-                    { name: "应用实践", type: "concept" }
-                ]
-            };
-            loadTreeData(defaultTree, keyword);
-            showToast(`使用本地数据生成 "${keyword}"，请点击"保存当前树"保存`, 'warning');
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '生成新树';
-        }
-    }
-
-    // ======================= 物理动画与绘制 =======================
-    function updatePhysics() {
-        if (!globalNodes.length) return;
-        currentHoverIntensity += (targetIntensity - currentHoverIntensity) * INTENSITY_SMOOTH;
-
-        for (let node of globalNodes) {
-            let dx = node.baseX - node.x;
-            let dy = node.baseY - node.y;
-            let forceX = dx * SPRING_STRENGTH;
-            let forceY = dy * SPRING_STRENGTH;
-
-            if (hoveredNodeId === node.id && currentHoverIntensity > 0.01) {
-                const distToMouse = Math.hypot(mouseX - node.x, mouseY - node.y);
-                if (distToMouse < ATTRACT_RADIUS) {
-                    let strength = 1 - Math.min(1, distToMouse / ATTRACT_RADIUS);
-                    strength = Math.pow(strength, 1.2);
-                    const effectiveStrength = strength * currentHoverIntensity;
-                    const maxOffset = MAX_OFFSET * effectiveStrength;
-                    let dirX = mouseX - node.x;
-                    let dirY = mouseY - node.y;
-                    const len = Math.hypot(dirX, dirY);
-                    if (len > 0.01) {
-                        dirX /= len;
-                        dirY /= len;
-                        const targetX = node.baseX + dirX * maxOffset;
-                        const targetY = node.baseY + dirY * maxOffset;
-                        let pullX = (targetX - node.x) * 0.18;
-                        let pullY = (targetY - node.y) * 0.18;
-                        forceX += pullX;
-                        forceY += pullY;
+        // ======================= 物理动画与绘制 =======================
+        function updatePhysics() {
+            if (!globalNodes.length) return;
+            currentHoverIntensity += (targetIntensity - currentHoverIntensity) * INTENSITY_SMOOTH;
+            for (let node of globalNodes) {
+                let dx = node.baseX - node.x;
+                let dy = node.baseY - node.y;
+                let forceX = dx * SPRING_STRENGTH;
+                let forceY = dy * SPRING_STRENGTH;
+                if (hoveredNodeId === node.id && currentHoverIntensity > 0.01) {
+                    const distToMouse = Math.hypot(mouseX - node.x, mouseY - node.y);
+                    if (distToMouse < ATTRACT_RADIUS) {
+                        let strength = 1 - Math.min(1, distToMouse / ATTRACT_RADIUS);
+                        strength = Math.pow(strength, 1.2);
+                        const effectiveStrength = strength * currentHoverIntensity;
+                        const maxOffset = MAX_OFFSET * effectiveStrength;
+                        let dirX = mouseX - node.x;
+                        let dirY = mouseY - node.y;
+                        const len = Math.hypot(dirX, dirY);
+                        if (len > 0.01) {
+                            dirX /= len;
+                            dirY /= len;
+                            const targetX = node.baseX + dirX * maxOffset;
+                            const targetY = node.baseY + dirY * maxOffset;
+                            let pullX = (targetX - node.x) * 0.18;
+                            let pullY = (targetY - node.y) * 0.18;
+                            forceX += pullX;
+                            forceY += pullY;
+                        }
                     }
                 }
-            }
-
-            node.vx += forceX;
-            node.vy += forceY;
-            node.vx *= DAMPING;
-            node.vy *= DAMPING;
-            
-            let speed = Math.hypot(node.vx, node.vy);
-            if (speed > MAX_SPEED) {
-                node.vx = node.vx / speed * MAX_SPEED;
-                node.vy = node.vy / speed * MAX_SPEED;
-            }
-            
-            node.x += node.vx;
-            node.y += node.vy;
-            
-            const offsetDist = Math.hypot(node.x - node.baseX, node.y - node.baseY);
-            if (speed < SETTLE_THRESHOLD && offsetDist < 0.5) {
-                node.x = node.baseX;
-                node.y = node.baseY;
-                node.vx = 0;
-                node.vy = 0;
+                node.vx += forceX;
+                node.vy += forceY;
+                node.vx *= DAMPING;
+                node.vy *= DAMPING;
+                let speed = Math.hypot(node.vx, node.vy);
+                if (speed > MAX_SPEED) {
+                    node.vx = node.vx / speed * MAX_SPEED;
+                    node.vy = node.vy / speed * MAX_SPEED;
+                }
+                node.x += node.vx;
+                node.y += node.vy;
+                const offsetDist = Math.hypot(node.x - node.baseX, node.y - node.baseY);
+                if (speed < SETTLE_THRESHOLD && offsetDist < 0.5) {
+                    node.x = node.baseX;
+                    node.y = node.baseY;
+                    node.vx = 0;
+                    node.vy = 0;
+                }
             }
         }
-    }
 
-    function drawTree() {
-        if (!ctx || globalNodes.length === 0) {
+        function drawTree() {
+            if (!ctx) return;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             if (globalNodes.length === 0 && currentTreeData === null) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#94a3b8";
+                ctx.fillStyle = "#aaaaaa";
                 ctx.font = "14px Inter";
                 ctx.textAlign = "center";
                 ctx.fillText("暂无数据，请生成或选择知识树", canvas.width/2, canvas.height/2);
+                return;
             }
-            return;
-        }
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.save();
-
-        // 绘制连线
-        for (let edge of globalEdges) {
-            const fromNode = globalNodes.find(n => n.id === edge.from);
-            const toNode = globalNodes.find(n => n.id === edge.to);
-            if (!fromNode || !toNode) continue;
-            const start = { x: fromNode.x, y: fromNode.y };
-            const end = { x: toNode.x, y: toNode.y };
-            const dx = end.x - start.x;
-            const dy = end.y - start.y;
-            const len = Math.hypot(dx, dy);
-            if (len < 0.1) continue;
-            const perpX = -dy / len;
-            const perpY = dx / len;
-            const midX = (start.x + end.x) / 2;
-            const midY = (start.y + end.y) / 2;
-            let offset = 0;
-            if (hoveredNodeId && currentHoverIntensity > 0.05 && (fromNode.id === hoveredNodeId || toNode.id === hoveredNodeId)) {
-                const activeNode = (fromNode.id === hoveredNodeId) ? fromNode : toNode;
-                const distFromBase = Math.hypot(activeNode.x - activeNode.baseX, activeNode.y - activeNode.baseY);
-                offset = Math.min(8, distFromBase * 0.6) * currentHoverIntensity;
-            }
-            const ctrlX = midX + perpX * offset;
-            const ctrlY = midY + perpY * offset;
-            ctx.beginPath();
-            ctx.moveTo(start.x, start.y);
-            ctx.quadraticCurveTo(ctrlX, ctrlY, end.x, end.y);
-            ctx.strokeStyle = "#94a3b8";
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-        }
-
-        // 绘制节点文字
-        for (let node of globalNodes) {
-            const isHovered = (hoveredNodeId === node.id && currentHoverIntensity > 0.05);
-            ctx.font = "12px Inter, system-ui";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, scale);
             
-            if (isHovered) {
-                ctx.shadowColor = "rgba(255, 255, 255, 0.9)";
-                ctx.shadowBlur = 8;
-                ctx.fillStyle = "#1e293b";
+            drawDotGrid();
+
+            let maxImp = window._currentMaxImportance || 5;
+            if (maxImp < 1) maxImp = 1;
+
+            for (let edge of globalEdges) {
+                const fromNode = globalNodes.find(n => n.id === edge.from);
+                const toNode = globalNodes.find(n => n.id === edge.to);
+                if (!fromNode || !toNode) continue;
+
+                const importance = toNode.importance !== undefined ? toNode.importance : 5;
+                const t = (importance - 1) / (maxImp - 1);
+                const lineWidth = 1 + (1 - t) * 3;
+                const grayVal = Math.floor(255 - t * 175);
+                const strokeColor = `rgb(${grayVal}, ${grayVal}, ${grayVal})`;
+
+                const start = { x: fromNode.x, y: fromNode.y };
+                const end = { x: toNode.x, y: toNode.y };
+                const dx = end.x - start.x;
+                const dy = end.y - start.y;
+                const len = Math.hypot(dx, dy);
+                if (len < 0.1) continue;
+                const perpX = -dy / len;
+                const perpY = dx / len;
+                const midX = (start.x + end.x) / 2;
+                const midY = (start.y + end.y) / 2;
+                let offset = 0;
+                if (hoveredNodeId && currentHoverIntensity > 0.05 && (fromNode.id === hoveredNodeId || toNode.id === hoveredNodeId)) {
+                    const activeNode = (fromNode.id === hoveredNodeId) ? fromNode : toNode;
+                    const distFromBase = Math.hypot(activeNode.x - activeNode.baseX, activeNode.y - activeNode.baseY);
+                    offset = Math.min(8, distFromBase * 0.6) * currentHoverIntensity;
+                }
+                const ctrlX = midX + perpX * offset;
+                const ctrlY = midY + perpY * offset;
+                ctx.beginPath();
+                ctx.moveTo(start.x, start.y);
+                ctx.quadraticCurveTo(ctrlX, ctrlY, end.x, end.y);
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = lineWidth / scale;
+                ctx.stroke();
+            }
+
+            for (let node of globalNodes) {
+                const importance = node.importance !== undefined ? node.importance : 5;
+                const fontSize = 12;
+                const font = `${fontSize}px "Inter", system-ui`;
+                ctx.font = font;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                
+                const textWidth = ctx.measureText(node.name).width;
+                const padding = 6;
+                const bgWidth = textWidth + padding * 2;
+                const bgHeight = fontSize + 6;
+                const bgX = node.x - bgWidth / 2;
+                const bgY = node.y - bgHeight / 2;
+                
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.beginPath();
+                ctx.roundRect(bgX, bgY, bgWidth, bgHeight, 8);
+                ctx.fill();
+                
+                ctx.fillStyle = "#ffffff";
                 ctx.fillText(node.name, node.x, node.y);
-                ctx.shadowBlur = 12;
-                ctx.fillText(node.name, node.x, node.y);
-                ctx.shadowColor = "transparent";
+                
+                ctx.font = `bold 8px "Inter"`;
+                ctx.fillStyle = "#cccccc";
+                ctx.fillText(`[${importance}]`, node.x + textWidth/2 + 4, node.y - fontSize/2 - 2);
+            }
+
+            ctx.restore();
+        }
+
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.moveTo(x+r, y);
+                this.lineTo(x+w-r, y);
+                this.quadraticCurveTo(x+w, y, x+w, y+r);
+                this.lineTo(x+w, y+h-r);
+                this.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+                this.lineTo(x+r, y+h);
+                this.quadraticCurveTo(x, y+h, x, y+h-r);
+                this.lineTo(x, y+r);
+                this.quadraticCurveTo(x, y, x+r, y);
+                return this;
+            };
+        }
+
+        function animate() {
+            updatePhysics();
+            drawTree();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // ======================= 事件处理 =======================
+        function transformScreenToCanvas(screenX, screenY) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX_css = canvas.width / rect.width;
+            const scaleY_css = canvas.height / rect.height;
+            let canvasX = (screenX - rect.left) * scaleX_css;
+            let canvasY = (screenY - rect.top) * scaleY_css;
+            canvasX = (canvasX - offsetX) / scale;
+            canvasY = (canvasY - offsetY) / scale;
+            return { x: canvasX, y: canvasY };
+        }
+
+        function handleMouseMove(e) {
+            const { x: canvasX, y: canvasY } = transformScreenToCanvas(e.clientX, e.clientY);
+            mouseX = canvasX;
+            mouseY = canvasY;
+            let minDist = ATTRACT_RADIUS;
+            let closestId = null;
+            for (let node of globalNodes) {
+                const dist = Math.hypot(node.x - mouseX, node.y - mouseY);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestId = node.id;
+                }
+            }
+            if (closestId !== hoveredNodeId) {
+                hoveredNodeId = closestId;
+                targetIntensity = hoveredNodeId ? 1 : 0;
+            } else if (hoveredNodeId) {
+                targetIntensity = 1;
             } else {
-                ctx.fillStyle = "#1e293b";
-                ctx.fillText(node.name, node.x, node.y);
+                targetIntensity = 0;
             }
         }
-        ctx.restore();
-    }
 
-    function animate() {
-        updatePhysics();
-        drawTree();
-        animationId = requestAnimationFrame(animate);
-    }
+        function handleCanvasClick(e) {
+            e.stopPropagation();
+            const { x: clickX, y: clickY } = transformScreenToCanvas(e.clientX, e.clientY);
+            let minDist = 15;
+            let clickedNode = null;
+            for (let node of globalNodes) {
+                const dist = Math.hypot(node.x - clickX, node.y - clickY);
+                if (dist < minDist) {
+                    minDist = dist;
+                    clickedNode = node;
+                }
+            }
+            if (clickedNode) {
+                showNodeDetail(clickedNode);
+                showFloatButtons(e.clientX, e.clientY, clickedNode);
+            } else {
+                hideFloatButtons();
+            }
+            hideContextMenu();
+        }
 
-    // ======================= 事件处理 =======================
-    function handleMouseMove(e) {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        let canvasX = (e.clientX - rect.left) * scaleX;
-        let canvasY = (e.clientY - rect.top) * scaleY;
-        canvasX = Math.min(Math.max(0, canvasX), canvas.width);
-        canvasY = Math.min(Math.max(0, canvasY), canvas.height);
-        mouseX = canvasX;
-        mouseY = canvasY;
-
-        let minDist = ATTRACT_RADIUS;
-        let closestId = null;
-        for (let node of globalNodes) {
-            const dist = Math.hypot(node.x - mouseX, node.y - mouseY);
-            if (dist < minDist) {
-                minDist = dist;
-                closestId = node.id;
+        function handleCanvasContextMenu(e) {
+            e.preventDefault();
+            const { x: clickX, y: clickY } = transformScreenToCanvas(e.clientX, e.clientY);
+            let minDist = 15;
+            let node = null;
+            for (let n of globalNodes) {
+                const dist = Math.hypot(n.x - clickX, n.y - clickY);
+                if (dist < minDist) {
+                    minDist = dist;
+                    node = n;
+                }
+            }
+            if (node) {
+                showContextMenu(e.clientX, e.clientY, node);
+            } else {
+                hideContextMenu();
             }
         }
-        if (closestId !== hoveredNodeId) {
-            hoveredNodeId = closestId;
-            targetIntensity = hoveredNodeId ? 1 : 0;
-        } else if (hoveredNodeId) {
-            targetIntensity = 1;
-        } else {
-            targetIntensity = 0;
+
+        function showNodeDetail(node) {
+            const detailDiv = document.getElementById('detailBox');
+            let html = `<div>
+                <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
+                    <span style="background: #eef2ff; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.7rem;">${node.type === 'paper' ? '论文' : '概念'}</span>
+                    <span style="font-weight: 700; font-size: 1rem;">${escapeHtml(node.name)}</span>
+                    ${node.importance ? `<span style="background: #334155; color: white; padding: 0.1rem 0.5rem; border-radius: 20px; font-size: 0.7rem;">重要度 #${node.importance}</span>` : ''}
+                </div>`;
+            if (node.description) html += `<p>描述：${escapeHtml(node.description)}</p>`;
+            if (node.type === 'paper') {
+                html += `<p><strong>作者：</strong>${node.authors || '待补充'}</p>`;
+                html += `<p><strong>年份：</strong>${node.year || '未知'}</p>`;
+                if (node.quote) html += `<div style="background: #f1f5f9; padding: 0.6rem; border-radius: 0.5rem; margin-top: 0.5rem; font-style: italic;">"${escapeHtml(node.quote)}"</div>`;
+            }
+            if (node.url && node.url.trim()) html += `<a href="${node.url}" target="_blank" style="color: #3b82f6; font-size: 0.8rem; margin-top: 0.5rem; display: inline-block;">查看原文 &rarr;</a>`;
+            html += `</div>`;
+            detailDiv.innerHTML = html;
         }
-    }
 
-    function handleMouseLeave() {
-        mouseX = -1000;
-        mouseY = -1000;
-        hoveredNodeId = null;
-        targetIntensity = 0;
-    }
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
-    function handleCanvasClick(e) {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        let clickX = (e.clientX - rect.left) * scaleX;
-        let clickY = (e.clientY - rect.top) * scaleY;
-        let minDist = 15;
-        let clickedNode = null;
-        for (let node of globalNodes) {
-            const dist = Math.hypot(node.x - clickX, node.y - clickY);
-            if (dist < minDist) {
-                minDist = dist;
-                clickedNode = node;
+        function formatDate(dateStr) {
+            if (!dateStr) return '未知';
+            return dateStr.slice(5, 16).replace('-', '/');
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const mouseX_css = e.clientX - rect.left;
+            const mouseY_css = e.clientY - rect.top;
+            const scaleX_css = canvas.width / rect.width;
+            const scaleY_css = canvas.height / rect.height;
+            let mouseCanvasX = mouseX_css * scaleX_css;
+            let mouseCanvasY = mouseY_css * scaleY_css;
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newScale = Math.min(3, Math.max(0.5, scale * delta));
+            if (newScale === scale) return;
+            const mouseX_before = (mouseCanvasX - offsetX) / scale;
+            const mouseY_before = (mouseCanvasY - offsetY) / scale;
+            scale = newScale;
+            offsetX = mouseCanvasX - mouseX_before * scale;
+            offsetY = mouseCanvasY - mouseY_before * scale;
+        }
+
+        function startPan(e) {
+            if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
+                isPanning = true;
+                panStart.x = e.clientX;
+                panStart.y = e.clientY;
+                canvas.style.cursor = 'grabbing';
+                e.preventDefault();
             }
         }
-        if (clickedNode) {
-            showNodeDetail(clickedNode);
+
+        function panMove(e) {
+            if (!isPanning) return;
+            const dx = e.clientX - panStart.x;
+            const dy = e.clientY - panStart.y;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX_css = canvas.width / rect.width;
+            const scaleY_css = canvas.height / rect.height;
+            offsetX += dx * scaleX_css;
+            offsetY += dy * scaleY_css;
+            panStart.x = e.clientX;
+            panStart.y = e.clientY;
         }
-    }
 
-    function showNodeDetail(node) {
-        const detailDiv = document.getElementById('detailBox');
-        let html = `<div>
-            <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
-                <span style="background: #eef2ff; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.7rem;">${node.type === 'paper' ? '论文' : '概念'}</span>
-                <span style="font-weight: 700; font-size: 1rem;">${escapeHtml(node.name)}</span>
-            </div>`;
-        if (node.type === 'paper') {
-            html += `<p><strong>作者：</strong>${node.authors || '待补充'}</p>`;
-            html += `<p><strong>年份：</strong>${node.year || '未知'}</p>`;
-            html += `<div style="background: #f1f5f9; padding: 0.6rem; border-radius: 0.5rem; margin-top: 0.5rem; font-style: italic;">"${node.quote || '前沿研究内容'}"</div>`;
-        } else {
-            html += `<p>${node.description || '核心知识节点'}</p>`;
+        function endPan() {
+            isPanning = false;
+            canvas.style.cursor = 'grab';
         }
-        if (node.url) html += `<a href="${node.url}" target="_blank" style="color: #3b82f6; font-size: 0.8rem; margin-top: 0.5rem; display: inline-block;">查看原文 →</a>`;
-        html += `</div>`;
-        detailDiv.innerHTML = html;
-    }
 
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    function formatDate(dateStr) {
-        if (!dateStr) return '未知';
-        return dateStr.slice(5, 16).replace('-', '/');
-    }
-
-    // 默认加载示例树
-    const DEFAULT_TREE = {
-        name: "AI 知识体系",
-        type: "root",
-        children: [
-            { name: "机器学习", type: "concept", description: "数据驱动算法", children: [
-                { name: "监督学习", type: "concept", children: [
-                    { name: "线性回归", type: "concept" },
-                    { name: "支持向量机", type: "concept" }
+        const DEFAULT_TREE = {
+            name: "AI 知识体系",
+            type: "root",
+            description: "人工智能知识脉络",
+            children: [
+                { name: "机器学习", type: "concept", description: "数据驱动算法", children: [
+                    { name: "监督学习", type: "concept", children: [
+                        { name: "线性回归", type: "concept" },
+                        { name: "支持向量机", type: "concept" }
+                    ] },
+                    { name: "无监督学习", type: "concept" }
                 ] },
-                { name: "无监督学习", type: "concept" }
-            ] },
-            { name: "深度学习", type: "concept", children: [
-                { name: "Transformer", type: "paper", year: 2017, authors: "Vaswani", quote: "注意力机制" }
-            ] }
-        ]
-    };
+                { name: "深度学习", type: "concept", children: [
+                    { name: "Transformer", type: "paper", year: 2017, authors: "Vaswani", quote: "注意力机制" }
+                ] }
+            ]
+        };
 
-    // ======================= 初始化 =======================
-    function init() {
-        canvas.addEventListener('mousemove', handleMouseMove);
-        canvas.addEventListener('mouseleave', handleMouseLeave);
-        canvas.addEventListener('click', handleCanvasClick);
-        
-        document.getElementById('generateBtn').addEventListener('click', generateNewTree);
-        document.getElementById('saveCurrentBtn').addEventListener('click', saveCurrentTree);
-        document.getElementById('deleteCurrentBtn').addEventListener('click', deleteCurrentTree);
-        document.getElementById('refreshListBtn').addEventListener('click', loadTreesList);
-        
-        loadTreeData(DEFAULT_TREE, DEFAULT_TREE.name);
-        loadTreesList();
-        animate();
-        
-        window.addEventListener('resize', () => {
-            if (currentTreeData) loadTreeData(currentTreeData, currentTreeName);
-        });
-    }
-    
-    init();
+        function init() {
+            canvas.addEventListener('wheel', handleWheel, { passive: false });
+            canvas.addEventListener('mousedown', startPan);
+            window.addEventListener('mousemove', panMove);
+            window.addEventListener('mouseup', endPan);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseleave', () => {
+                mouseX = -1000;
+                mouseY = -1000;
+                hoveredNodeId = null;
+                targetIntensity = 0;
+            });
+            canvas.addEventListener('click', handleCanvasClick);
+            canvas.addEventListener('contextmenu', handleCanvasContextMenu);
+            
+            document.getElementById('expandNodeMenu').addEventListener('click', () => {
+                if (contextMenuNode) {
+                    expandNode(contextMenuNode);
+                }
+                hideContextMenu();
+            });
+            document.getElementById('deleteNodeMenu').addEventListener('click', async () => {
+                if (contextMenuNode) {
+                    await deleteNodeFrontend(contextMenuNode);
+                }
+                hideContextMenu();
+            });
+            
+            document.addEventListener('click', hideContextMenu);
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') hideContextMenu();
+            });
+            
+            document.getElementById('generateBtn').addEventListener('click', generateNewTree);
+            document.getElementById('saveCurrentBtn').addEventListener('click', saveCurrentTree);
+            document.getElementById('deleteCurrentBtn').addEventListener('click', deleteCurrentTree);
+            document.getElementById('refreshListBtn').addEventListener('click', loadTreesList);
+            
+            loadTreeData(DEFAULT_TREE, DEFAULT_TREE.name);
+            loadTreesList();
+            animate();
+            window.addEventListener('resize', () => {
+                if (currentTreeData) loadTreeData(currentTreeData, currentTreeName);
+            });
+        }
+        init();
+    })();
 </script>
 </body>
 </html>

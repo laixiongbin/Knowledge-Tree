@@ -345,6 +345,10 @@
         let offsetX = 0, offsetY = 0;
         let isPanning = false;
         let panStart = { x: 0, y: 0 };
+        /** 左键在画布按下后，超过阈值则拖动画布平移（避免与点击节点冲突） */
+        let leftDragPanCandidate = null;
+        let suppressCanvasClick = false;
+        const LEFT_PAN_THRESHOLD_SQ = 25;
 
         const ATTRACT_RADIUS = 55;
         const MAX_OFFSET = 10;
@@ -360,11 +364,118 @@
 
         let canvas = document.getElementById('treeCanvas');
         let ctx = canvas.getContext('2d');
-        const API_BASE = 'http://127.0.0.1:5000';
+        const API_BASE = (function () {
+            try {
+                const o = window.location.origin;
+                if (o && o !== "null" && /^https?:\/\//i.test(o)) return o;
+            } catch (e) {}
+            return "http://127.0.0.1:5050";
+        })();
 
         let floatContainer = null;
         let contextMenuNode = null;
         const contextMenu = document.getElementById('contextMenu');
+
+        const NODE_LABEL_FONT_PX = 12;
+        const NODE_LABEL_MAX_WIDTH = 220;
+        const NODE_LABEL_PADDING = 6;
+        /** 非根节点：标签从节点中心右侧开始，避免长标题向左盖住父节点 */
+        const NODE_LABEL_ANCHOR_GAP = 12;
+        /** 层级水平间距：须大于单节点标签向右占用的最大距离，避免父标签盖住子节点锚点 */
+        const TREE_LEVEL_GAP = Math.ceil(
+            NODE_LABEL_ANCHOR_GAP + NODE_LABEL_PADDING * 2 + NODE_LABEL_MAX_WIDTH + 56
+        );
+        let canvasTooltipEl = null;
+
+        function ensureCanvasTooltip() {
+            if (canvasTooltipEl) return canvasTooltipEl;
+            const el = document.createElement('div');
+            el.setAttribute('role', 'tooltip');
+            el.style.cssText = 'position:fixed;display:none;padding:6px 10px;background:#1e293b;color:#fff;border-radius:6px;font-size:12px;line-height:1.4;pointer-events:none;z-index:100000;max-width:min(360px,90vw);word-wrap:break-word;box-shadow:0 4px 12px rgba(0,0,0,0.35);';
+            document.body.appendChild(el);
+            canvasTooltipEl = el;
+            return el;
+        }
+
+        function hideCanvasTooltip() {
+            if (canvasTooltipEl) canvasTooltipEl.style.display = 'none';
+        }
+
+        function truncateTextToWidth(ctx, text, maxWidth) {
+            if (!text) return '';
+            if (ctx.measureText(text).width <= maxWidth) return text;
+            const ell = '…';
+            const ellW = ctx.measureText(ell).width;
+            if (ellW > maxWidth) return ell;
+            let lo = 0;
+            let hi = text.length;
+            while (lo < hi) {
+                const mid = Math.ceil((lo + hi) / 2);
+                const w = ctx.measureText(text.slice(0, mid) + ell).width;
+                if (w <= maxWidth) lo = mid;
+                else hi = mid - 1;
+            }
+            return lo > 0 ? text.slice(0, lo) + ell : ell;
+        }
+
+        function getNodeLabelLayout(node, ctx) {
+            const fontSize = NODE_LABEL_FONT_PX;
+            ctx.font = `${fontSize}px "Inter", system-ui`;
+            const displayName = truncateTextToWidth(ctx, node.name, NODE_LABEL_MAX_WIDTH);
+            const textWidth = ctx.measureText(displayName).width;
+            const bgWidth = textWidth + NODE_LABEL_PADDING * 2;
+            const bgHeight = fontSize + 6;
+            const pad = NODE_LABEL_PADDING;
+            const isRoot = !!node.isRoot;
+            if (isRoot) {
+                const bgX = node.x - bgWidth / 2;
+                const bgY = node.y - bgHeight / 2;
+                return {
+                    isRoot: true,
+                    displayName,
+                    textWidth,
+                    bgWidth,
+                    bgHeight,
+                    fontSize,
+                    bgX,
+                    bgY,
+                    textX: node.x,
+                    textY: node.y
+                };
+            }
+            const bgX = node.x + NODE_LABEL_ANCHOR_GAP;
+            const bgY = node.y - bgHeight / 2;
+            const textX = bgX + pad;
+            return {
+                isRoot: false,
+                displayName,
+                textWidth,
+                bgWidth,
+                bgHeight,
+                fontSize,
+                bgX,
+                bgY,
+                textX,
+                textY: node.y
+            };
+        }
+
+        function pointInNodeLabel(node, canvasX, canvasY, ctx) {
+            const L = getNodeLabelLayout(node, ctx);
+            if (canvasX >= L.bgX && canvasX <= L.bgX + L.bgWidth &&
+                canvasY >= L.bgY && canvasY <= L.bgY + L.bgHeight) {
+                return true;
+            }
+            const importance = node.importance !== undefined ? node.importance : 5;
+            ctx.font = 'bold 8px "Inter"';
+            const impText = `[${importance}]`;
+            const impW = ctx.measureText(impText).width;
+            const impX = L.isRoot ? node.x + L.textWidth / 2 + 4 : L.textX + L.textWidth + 4;
+            const impY = node.y - L.fontSize / 2 - 2;
+            const impH = 10;
+            return canvasX >= impX && canvasX <= impX + impW &&
+                canvasY >= impY - impH && canvasY <= impY + 2;
+        }
 
         // ======================= 重要性辅助函数 =======================
         function assignDefaultImportance(node, siblingIndex = 0) {
@@ -407,6 +518,7 @@
                 id: currentId,
                 path: currentPath,
                 name: node.name,
+                isRoot: !parentId,
                 type: node.type || (node.children ? "branch" : "concept"),
                 description: node.description || (node.type === "paper" ? "经典论文" : "知识节点"),
                 authors: node.authors,
@@ -464,7 +576,7 @@
 
             const positions = new Map();
             const startX = 70;
-            const levelGap = 130;
+            const levelGap = TREE_LEVEL_GAP;
             const verticalPadding = 45;
 
             function assignPositions(nodeId, depth, topY, bottomY) {
@@ -492,24 +604,51 @@
             });
         }
 
-        function renderPieChart(nodes) {
+        function renderPieChart(nodes, edges) {
             const pieCanvas = document.getElementById('pieCanvas');
             if (!pieCanvas) return;
             const ctx = pieCanvas.getContext('2d');
             const w = pieCanvas.clientWidth, h = pieCanvas.clientHeight;
             pieCanvas.width = w; pieCanvas.height = h;
-            const categories = { "机器学习": 0, "深度学习": 0, "视觉": 0, "NLP": 0, "其他": 0 };
-            nodes.forEach(node => {
-                const name = node.name;
-                if (name.includes("机器") || name.includes("监督") || name.includes("强化")) categories["机器学习"]++;
-                else if (name.includes("深度") || name.includes("CNN") || name.includes("Transformer") || name.includes("BERT")) categories["深度学习"]++;
-                else if (name.includes("视觉") || name.includes("检测") || name.includes("图像")) categories["视觉"]++;
-                else if (name.includes("语言") || name.includes("NLP") || name.includes("情感") || name.includes("翻译")) categories["NLP"]++;
-                else categories["其他"]++;
-            });
-            const data = Object.entries(categories).filter(([_,v]) => v > 0);
+
+            let data = [];
+            if (nodes.length && edges && edges.length) {
+                const childrenMap = new Map();
+                edges.forEach(edge => {
+                    if (!childrenMap.has(edge.from)) childrenMap.set(edge.from, []);
+                    childrenMap.get(edge.from).push(edge.to);
+                });
+                const hasParent = new Set(edges.map(e => e.to));
+                const rootNode = nodes.find(n => !hasParent.has(n.id));
+                const rootChildren = rootNode ? (childrenMap.get(rootNode.id) || []) : [];
+                function countSubtree(nodeId) {
+                    let c = 1;
+                    for (const kid of (childrenMap.get(nodeId) || [])) c += countSubtree(kid);
+                    return c;
+                }
+                if (rootChildren.length > 0) {
+                    data = rootChildren.map(cid => {
+                        const n = nodes.find(x => x.id === cid);
+                        return [n ? n.name : cid, countSubtree(cid)];
+                    });
+                }
+            }
+
+            if (data.length === 0) {
+                const categories = { "机器学习": 0, "深度学习": 0, "视觉": 0, "NLP": 0, "其他": 0 };
+                nodes.forEach(node => {
+                    const name = node.name;
+                    if (name.includes("机器") || name.includes("监督") || name.includes("强化")) categories["机器学习"]++;
+                    else if (name.includes("深度") || name.includes("CNN") || name.includes("Transformer") || name.includes("BERT")) categories["深度学习"]++;
+                    else if (name.includes("视觉") || name.includes("检测") || name.includes("图像")) categories["视觉"]++;
+                    else if (name.includes("语言") || name.includes("NLP") || name.includes("情感") || name.includes("翻译")) categories["NLP"]++;
+                    else categories["其他"]++;
+                });
+                data = Object.entries(categories).filter(([_, v]) => v > 0);
+            }
+
             if (data.length === 0) return;
-            const total = data.reduce((s,d) => s+d[1], 0);
+            const total = data.reduce((s, d) => s + d[1], 0);
             let startAngle = -Math.PI/2;
             const colors = ["#3b82f6", "#8b5cf6", "#ef4444", "#10b981", "#f59e0b"];
             ctx.clearRect(0, 0, w, h);
@@ -564,7 +703,7 @@
             const { nodes, edges } = buildGraphFromTree(currentTreeData);
             globalEdges = edges;
             const maxDepth = getMaxDepth(nodes, edges);
-            const levelGap = 130;
+            const levelGap = TREE_LEVEL_GAP;
             const baseWidth = 400;
             const dynamicWidth = Math.max(baseWidth + (maxDepth - 1) * levelGap, 700);
             canvas.width = dynamicWidth;
@@ -574,7 +713,7 @@
             document.getElementById('canvasContainer').style.overflowX = 'auto';
             const positioned = computeStaticLayout(nodes, edges, canvas.width, canvas.height);
             globalNodes = positioned;
-            renderPieChart(globalNodes);
+            renderPieChart(globalNodes, globalEdges);
         }
 
         function loadTreeData(treeData, treeName) {
@@ -1124,31 +1263,30 @@
 
             for (let node of globalNodes) {
                 const importance = node.importance !== undefined ? node.importance : 5;
-                const fontSize = 12;
-                const font = `${fontSize}px "Inter", system-ui`;
-                ctx.font = font;
-                ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
-                
-                const textWidth = ctx.measureText(node.name).width;
-                const padding = 6;
-                const bgWidth = textWidth + padding * 2;
-                const bgHeight = fontSize + 6;
-                const bgX = node.x - bgWidth / 2;
-                const bgY = node.y - bgHeight / 2;
-                
+                const L = getNodeLabelLayout(node, ctx);
+
                 ctx.shadowBlur = 0;
                 ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
                 ctx.beginPath();
-                ctx.roundRect(bgX, bgY, bgWidth, bgHeight, 8);
+                ctx.roundRect(L.bgX, L.bgY, L.bgWidth, L.bgHeight, 8);
                 ctx.fill();
-                
+
+                ctx.font = `${L.fontSize}px "Inter", system-ui`;
                 ctx.fillStyle = "#ffffff";
-                ctx.fillText(node.name, node.x, node.y);
-                
-                ctx.font = `bold 8px "Inter"`;
+                if (L.isRoot) {
+                    ctx.textAlign = "center";
+                    ctx.fillText(L.displayName, L.textX, L.textY);
+                } else {
+                    ctx.textAlign = "left";
+                    ctx.fillText(L.displayName, L.textX, L.textY);
+                }
+
+                ctx.font = 'bold 8px "Inter"';
+                ctx.textAlign = "left";
                 ctx.fillStyle = "#cccccc";
-                ctx.fillText(`[${importance}]`, node.x + textWidth/2 + 4, node.y - fontSize/2 - 2);
+                const badgeX = L.isRoot ? node.x + L.textWidth / 2 + 4 : L.textX + L.textWidth + 4;
+                ctx.fillText(`[${importance}]`, badgeX, node.y - L.fontSize / 2 - 2);
             }
 
             ctx.restore();
@@ -1193,6 +1331,14 @@
             const { x: canvasX, y: canvasY } = transformScreenToCanvas(e.clientX, e.clientY);
             mouseX = canvasX;
             mouseY = canvasY;
+            let labelHoverNode = null;
+            for (let i = globalNodes.length - 1; i >= 0; i--) {
+                const node = globalNodes[i];
+                if (pointInNodeLabel(node, canvasX, canvasY, ctx)) {
+                    labelHoverNode = node;
+                    break;
+                }
+            }
             let minDist = ATTRACT_RADIUS;
             let closestId = null;
             for (let node of globalNodes) {
@@ -1202,26 +1348,56 @@
                     closestId = node.id;
                 }
             }
-            if (closestId !== hoveredNodeId) {
-                hoveredNodeId = closestId;
+            const physicsId = labelHoverNode ? labelHoverNode.id : closestId;
+            if (physicsId !== hoveredNodeId) {
+                hoveredNodeId = physicsId;
                 targetIntensity = hoveredNodeId ? 1 : 0;
             } else if (hoveredNodeId) {
                 targetIntensity = 1;
             } else {
                 targetIntensity = 0;
             }
+            const tip = ensureCanvasTooltip();
+            if (labelHoverNode) {
+                const lm = getNodeLabelLayout(labelHoverNode, ctx);
+                if (lm.displayName !== labelHoverNode.name) {
+                    tip.textContent = labelHoverNode.name;
+                    tip.style.display = 'block';
+                    tip.style.left = (e.clientX + 14) + 'px';
+                    tip.style.top = (e.clientY + 14) + 'px';
+                } else {
+                    hideCanvasTooltip();
+                }
+            } else {
+                hideCanvasTooltip();
+            }
         }
 
         function handleCanvasClick(e) {
             e.stopPropagation();
+            if (suppressCanvasClick) {
+                suppressCanvasClick = false;
+                hideFloatButtons();
+                hideContextMenu();
+                return;
+            }
             const { x: clickX, y: clickY } = transformScreenToCanvas(e.clientX, e.clientY);
-            let minDist = 15;
             let clickedNode = null;
-            for (let node of globalNodes) {
-                const dist = Math.hypot(node.x - clickX, node.y - clickY);
-                if (dist < minDist) {
-                    minDist = dist;
+            for (let i = globalNodes.length - 1; i >= 0; i--) {
+                const node = globalNodes[i];
+                if (pointInNodeLabel(node, clickX, clickY, ctx)) {
                     clickedNode = node;
+                    break;
+                }
+            }
+            if (!clickedNode) {
+                let minDist = 22;
+                for (let node of globalNodes) {
+                    const dist = Math.hypot(node.x - clickX, node.y - clickY);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        clickedNode = node;
+                    }
                 }
             }
             if (clickedNode) {
@@ -1236,13 +1412,22 @@
         function handleCanvasContextMenu(e) {
             e.preventDefault();
             const { x: clickX, y: clickY } = transformScreenToCanvas(e.clientX, e.clientY);
-            let minDist = 15;
             let node = null;
-            for (let n of globalNodes) {
-                const dist = Math.hypot(n.x - clickX, n.y - clickY);
-                if (dist < minDist) {
-                    minDist = dist;
+            for (let i = globalNodes.length - 1; i >= 0; i--) {
+                const n = globalNodes[i];
+                if (pointInNodeLabel(n, clickX, clickY, ctx)) {
                     node = n;
+                    break;
+                }
+            }
+            if (!node) {
+                let minDist = 22;
+                for (let n of globalNodes) {
+                    const dist = Math.hypot(n.x - clickX, n.y - clickY);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        node = n;
+                    }
                 }
             }
             if (node) {
@@ -1305,14 +1490,37 @@
         function startPan(e) {
             if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
                 isPanning = true;
+                leftDragPanCandidate = null;
                 panStart.x = e.clientX;
                 panStart.y = e.clientY;
                 canvas.style.cursor = 'grabbing';
                 e.preventDefault();
+                return;
+            }
+            if (e.button === 0) {
+                suppressCanvasClick = false;
+                leftDragPanCandidate = { x: e.clientX, y: e.clientY };
             }
         }
 
         function panMove(e) {
+            if (!isPanning && leftDragPanCandidate && (e.buttons & 1)) {
+                const dx = e.clientX - leftDragPanCandidate.x;
+                const dy = e.clientY - leftDragPanCandidate.y;
+                if (dx * dx + dy * dy >= LEFT_PAN_THRESHOLD_SQ) {
+                    isPanning = true;
+                    suppressCanvasClick = true;
+                    leftDragPanCandidate = null;
+                    canvas.style.cursor = 'grabbing';
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX_css = canvas.width / rect.width;
+                    const scaleY_css = canvas.height / rect.height;
+                    offsetX += dx * scaleX_css;
+                    offsetY += dy * scaleY_css;
+                    panStart.x = e.clientX;
+                    panStart.y = e.clientY;
+                }
+            }
             if (!isPanning) return;
             const dx = e.clientX - panStart.x;
             const dy = e.clientY - panStart.y;
@@ -1325,7 +1533,10 @@
             panStart.y = e.clientY;
         }
 
-        function endPan() {
+        function endPan(e) {
+            if (e && e.button === 0) {
+                leftDragPanCandidate = null;
+            }
             isPanning = false;
             canvas.style.cursor = 'grab';
         }
@@ -1359,6 +1570,7 @@
                 mouseY = -1000;
                 hoveredNodeId = null;
                 targetIntensity = 0;
+                hideCanvasTooltip();
             });
             canvas.addEventListener('click', handleCanvasClick);
             canvas.addEventListener('contextmenu', handleCanvasContextMenu);

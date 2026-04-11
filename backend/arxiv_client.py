@@ -9,6 +9,7 @@ from __future__ import annotations
 import difflib
 import os
 import re
+import threading
 import time
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, Optional
@@ -32,6 +33,10 @@ def _delay_seconds() -> float:
     except ValueError:
         v = 3.1
     return max(0.0, v)
+
+
+_arxiv_gate = threading.Lock()
+_last_arxiv_request_mono: float = 0.0
 
 
 def _max_papers() -> int:
@@ -112,6 +117,7 @@ def search_arxiv_abs_url(title: str, authors: Optional[str] = None) -> Optional[
     title_only_query = f'all:"{phrase}"'
 
     def run_query(search_query: str) -> Optional[str]:
+        global _last_arxiv_request_mono
         params = {
             "search_query": search_query,
             "start": 0,
@@ -119,18 +125,32 @@ def search_arxiv_abs_url(title: str, authors: Optional[str] = None) -> Optional[
             "sortBy": "relevance",
             "sortOrder": "descending",
         }
-        try:
-            r = requests.get(
-                ARXIV_API,
-                params=params,
-                headers={"User-Agent": _user_agent()},
-                timeout=45,
-            )
-            r.raise_for_status()
-        except requests.RequestException:
+        raw_content: Optional[bytes] = None
+        delay = _delay_seconds()
+        with _arxiv_gate:
+            if delay > 0:
+                now = time.monotonic()
+                wait = delay - (now - _last_arxiv_request_mono)
+                if wait > 0:
+                    time.sleep(wait)
+            try:
+                r = requests.get(
+                    ARXIV_API,
+                    params=params,
+                    headers={"User-Agent": _user_agent()},
+                    timeout=45,
+                )
+                r.raise_for_status()
+                raw_content = r.content
+            except requests.RequestException:
+                raw_content = None
+            finally:
+                if delay > 0:
+                    _last_arxiv_request_mono = time.monotonic()
+        if raw_content is None:
             return None
         try:
-            root = ET.fromstring(r.content)
+            root = ET.fromstring(raw_content)
         except ET.ParseError:
             return None
         entries = list(root.findall(f"{ATOM}entry"))
@@ -149,10 +169,7 @@ def search_arxiv_abs_url(title: str, authors: Optional[str] = None) -> Optional[
         hit = run_query(combined)
         if hit:
             return hit
-        # 作者与 arXiv 署名不一致时 AND 常无结果；回退仅标题（两次请求间稍等，避免连击 API）
-        d = _delay_seconds()
-        if d > 0:
-            time.sleep(min(d, 4.0))
+        # 回退仅标题；与上一请求间隔由 run_query 内全局限频保证
         return run_query(title_only_query)
     return run_query(title_only_query)
 

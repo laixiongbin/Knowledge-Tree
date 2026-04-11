@@ -1,164 +1,8 @@
-# Knowledge-Tree 开发文档
-
-本文档主要面向项目开发者，描述此项目代码结构、运行方式、配置项、主要接口与打包流程。
-
-## 项目概览
-
-- **后端**：`backend/app.py`（Flask API 服务，负责知识树生成、保存、查询、扩展等）
-- **前端**：`frontend/`（静态页面 `index.html`，内联 JavaScript 通过 HTTP 调用后端 API）
-- **配置**：`.env`（DeepSeek API Key 与 Endpoint）
-- **数据存储**：`storage.json`（知识树持久化，具体读写在 `backend/restore.py`）
-- **打包**：`AI_Knowledge_Tree.spec`（通过PyInstaller 配置）
-
-## 环境准备
-
-- **操作系统**：Windows 10/11
-- **Python**：建议 3.10.x（本项目使用Python3.10.11）
-
-建议使用项目根目录下的虚拟环境（例如 `.venv`）：
-
-```powershell
-& ".\.venv\Scripts\Activate.ps1"
-python -m pip install -r requirements.txt
-```
-
-## 配置（.env）
-
-项目通过 `python-dotenv` 读取 `.env`。
-
-在项目根目录创建 `.env`（参考 `.env`）：
-
-```dotenv
-DEEPSEEK_API_KEY=sk-xxxxx
-DEEPSEEK_ENDPOINT=https://api.deepseek.com/v1/chat/completions
-```
-
-说明：
-
-- **DEEPSEEK_API_KEY**：你的 DeepSeek API Key
-- **DEEPSEEK_ENDPOINT**：接口地址（默认值已在代码中提供）
-
-## 本地运行（开发态/源代码）
-
-### 启动后端
-
-在项目根目录或 `backend/` 目录启动均可，推荐在 `backend/` 下启动app.py
-
-```powershell
-& ".\.venv\Scripts\python.exe" "backend\app.py"
-```
-
-默认监听地址（以实际输出为准）：
-
-- `http://127.0.0.1:5050`（默认；Windows 上 5000 常被系统服务占用导致 404，见 `backend/app.py` 说明）
-
-可用健康检查：
-
-- `GET /health`
-
-### 启动/打开前端
-
-前端是静态文件（`frontend/index.html`），开发时可直接用浏览器打开该文件，或用任意静态服务器托管它。
-
-- **方式 A**：直接双击打开 `frontend/index.html`
-  - 前端通过 `API_BASE` 调用 API：从后端打开页面时为当前站点 `origin`，直接打开本地 `index.html` 时回退为 `http://127.0.0.1:5050`
-  - 后端已启用 CORS，通常可以正常请求
-
-> 备注：`http://127.0.0.1:5050/` 由后端直接返回 `frontend/index.html`。打包时 `frontend/` 已作为 PyInstaller `datas` 纳入。
-
-## 后端接口速览（backend/app.py）
-
-以下为主要路由（以代码为准）：
-
-- **生成知识树**
-  - `POST /generate`
-  - Body：`{ "keyword": "..." }`
-  - 返回：知识树 JSON（失败时可能回退为本地生成的“树”）
-
-- **扩展节点**
-  - `POST /expand`
-  - 用途：基于已有节点生成子节点（由前端的蓝色“+”按钮触发）
-
-- **健康检查**
-  - `GET /health`
-
-- **知识树 CRUD / 查询**
-  - `GET /api/trees`：列表
-  - `GET /api/tree/<tree_name>`：详情
-  - `PUT /api/tree/<tree_name>`：更新整棵树
-  - `DELETE /api/tree/<tree_name>`：删除整棵树
-  - `POST /api/tree/<tree_name>/node`：新增节点
-  - `PUT /api/tree/<tree_name>/node/<path:node_path>`：更新节点
-  - `DELETE /api/tree/<tree_name>/node/<path:node_path>`：删除节点
-  - `POST /api/tree/<tree_name>/batch_nodes`：批量节点操作
-  - `GET /api/search`：搜索
-  - `GET /api/stats`：统计
-
-- **保存**
-  - `POST /save`
-  - 用途：保存当前树（前端“保存当前树”按钮）
-
-## 数据存储
-
-- 默认存储文件：项目根目录 `storage.json`
-- 存取逻辑：`backend/restore.py`（例如 JSONStorage）
-
-## 与 DeepSeek 的交互
-
-后端使用 `requests.post(...)` 调用 `DEEPSEEK_ENDPOINT`，并在请求头中带上：
-
-- `Authorization: Bearer <DEEPSEEK_API_KEY>`
-
-返回内容期望为模型的 JSON 输出（代码做 JSON 解析和校验）。
-
-## 打包（Windows 发布）
-
-项目使用 **PyInstaller** + `AI_Knowledge_Tree.spec` 打包：
-
-```powershell
-& ".\.venv\Scripts\python.exe" -m PyInstaller ".\AI_Knowledge_Tree.spec"
-```
-
-直接运行文件在：
-
-- `dist/AI_Knowledge_Tree.exe`
-
-### 分发安全：外部 .env
-
-当前 `AI_Knowledge_Tree.spec` 已配置为 **不内嵌 `.env`**（避免把 API Key 打进 exe）。
-
-发布给别人时：
-
-- 提供 `.env.`（不含真实 key）
-- 让使用者在 **exe 同目录** 自行创建 `.env`
-
-## 常见问题（Troubleshooting）
-
-### 1) 点击“生成”无反应/报错 500 
-
-优先检查：
-
-- `.env` 是否存在、变量名是否正确
-- `DEEPSEEK_API_KEY` 是否有效、是否有额度
-- 后端终端输出是否有报错
-- 可通过运行test.py检查与deepseek的连接是否正常
-
-### 2) Windows 控制台编码导致崩溃
-
-如果后端在 `print(...)` 输出 emoji/特殊字符，Windows 的默认 `gbk` 控制台可能触发 `UnicodeEncodeError`，从而导致接口 500。  
-建议：后端日志输出使用纯 ASCII/中文，避免 emoji（或调整控制台编码到 UTF-8）。
-
-### 3) 端口占用
-
-默认 **5050**（`PORT`）。若端口被占用，启动会失败；请改 `PORT` 或释放端口。勿误用已被系统占用的 **5000**（易出现 404）。
-
-
-
-### Knowledge-Tree 接口文档（后端 API）
+# Knowledge-Tree 接口文档（后端 API）
 
 本文档基于 `backend/app.py` 当前实现整理，默认服务地址：
 
-- **Base URL**：`http://127.0.0.1:5050`
+- **Base URL**：`http://127.0.0.1:5050`（默认端口；可用环境变量 `PORT` 覆盖。Windows 上 **5000** 常被系统服务占用，若连错进程会出现 **404**。）
 - **Content-Type**：除 `GET` 外一般使用 `application/json`
 
 ## 通用说明
@@ -213,6 +57,14 @@ DEEPSEEK_ENDPOINT=https://api.deepseek.com/v1/chat/completions
 
 ---
 
+## 根路径说明
+
+### GET `/` 与 `/index.html`
+
+**用途**：由后端 **直接返回** 仓库中的 `frontend/index.html`，浏览器打开 `http://127.0.0.1:5050/`（或与 `PORT` 一致）即可进入知识树界面（与 API 同源，避免误以为服务异常）。若进程的工作目录或部署方式导致找不到该文件，则返回 `503` 与 JSON 说明。
+
+---
+
 ## 健康检查
 
 ### GET `/health`
@@ -255,6 +107,58 @@ DEEPSEEK_ENDPOINT=https://api.deepseek.com/v1/chat/completions
 $body = @{ keyword = "注意力机制" } | ConvertTo-Json
 Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5050/generate" -ContentType "application/json" -Body $body
 ```
+
+### 生成为什么慢、如何加速
+
+耗时主要来自两部分：
+
+1. **DeepSeek 生成整棵树**（一次大模型调用，`max_tokens` 较大），网络与模型推理时间难以从后端完全消除。
+2. **论文链接补全**（默认开启）：对多棵 `paper` 节点依次访问 arXiv / Semantic Scholar / OpenAlex，且 arXiv 有请求间隔要求，篇数多时会明显拉长总时间。
+
+可选手段（在 `.env` 或运行环境中配置）：
+
+| 变量 | 说明 |
+|------|------|
+| `LITERATURE_ENRICH_ON_GENERATE` | 设为 `0` / `false` / `off` 时，**生成接口不再补全论文 URL**，首包最快；链接可后续再补或依赖模型已填的 `url`。 |
+| `LITERATURE_MAX_ENRICH` | 单次最多补全的论文数量上限（默认 `40`），调小可缩短最坏情况耗时。 |
+| `LITERATURE_ENRICH_WORKERS` | 并行补全线程数（默认 `4`）。多篇论文在 arXiv 侧仍全局限频串行，但在 Semantic Scholar / OpenAlex 等阶段可重叠，整体往往快于完全串行。 |
+| `ARXIV_QUERY_DELAY` | 两次 arXiv HTTP 请求之间的最小间隔（秒，默认约 `3.1`）。**不建议调得过低**，否则易被限流；已命中 `literature_cache` 的标题不会打 arXiv。 |
+| `LITERATURE_STEP_DELAY` | 同一篇论文在 arXiv 失败后切换到下一数据源前的间隔（秒，默认 `1`），可适当设为 `0` 略省时间（注意各源速率限制）。 |
+
+### 自动化：接入真实 HTTP / 大模型的集成测试
+
+脚本：`backend/test_integration_api.py`（依赖 `requests`，使用本机已启动的 Flask）。
+
+1. 终端 A：`cd backend` 后执行 `python app.py`（或使用 venv 下的 `python`）。
+2. 终端 B：
+
+```powershell
+cd backend
+..\venv\Scripts\python.exe test_integration_api.py
+```
+
+默认会请求 **`/health`、`/api/trees`、`/api/stats`、`/api/search`**，**不会**自动调用 **`/generate`**（避免误耗 DeepSeek 配额）。
+
+要对 **`/generate` 做一次真实生成**，在运行前设置：
+
+```powershell
+$env:INTEGRATION_FULL = "1"
+# 可选：自定义关键词与超时（秒）
+# $env:INTEGRATION_GENERATE_KEYWORD = "注意力机制"
+# $env:INTEGRATION_GENERATE_TIMEOUT = "180"
+..\venv\Scripts\python.exe test_integration_api.py
+```
+
+建议在服务端 `.env` 中设置 **`LITERATURE_ENRICH_ON_GENERATE=0`**，以缩短集成测试耗时。非默认地址时使用 **`INTEGRATION_BASE_URL`**（如 `http://127.0.0.1:8000`）。
+
+仅验证**本机到 DeepSeek 的直连**（不经过 Flask），需已配置 **`DEEPSEEK_API_KEY`**（脚本会尝试加载项目根目录 `.env`）：
+
+```powershell
+$env:INTEGRATION_DIRECT_DEEPSEEK = "1"
+..\venv\Scripts\python.exe test_integration_api.py
+```
+
+不启动服务、不访问外网的冒烟测试见 **`backend/test_stability.py`**。
 
 ---
 
@@ -558,3 +462,12 @@ Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5050/generate" -ContentTyp
 ```
 
 **失败响应**：`500`
+
+---
+
+## 备注与改进建议（可选）
+
+- **返回风格不统一**：建议将 `/generate` 与 `/health` 也统一为 `{code,data,message}` 结构，便于前端一致处理。
+- **路径歧义**：节点查找依赖 `name`，若同层重名会导致定位错误；建议引入稳定的 `id`。
+- **/expand 的 response_format**：当前提示词要求返回数组，但 payload 中使用了 `{"type":"json_object"}`，建议调整为匹配实际期望，或在后端更稳健地兼容两种格式。
+

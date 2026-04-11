@@ -6,11 +6,14 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any, Dict, Optional
+import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional
 
 import arxiv_client
 import openalex_client
 import semantic_scholar
+import literature_cache
 
 
 def _step_delay() -> float:
@@ -29,6 +32,31 @@ def _max_papers() -> int:
     except ValueError:
         n = 40
     return max(1, min(n, 200))
+
+
+def _enrich_workers() -> int:
+    raw = (os.getenv("LITERATURE_ENRICH_WORKERS", "4") or "").strip()
+    try:
+        n = int(raw)
+    except ValueError:
+        n = 4
+    return max(1, min(n, 16))
+
+
+def _collect_papers_needing_url(tree: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+
+    def walk(node: Dict[str, Any]) -> None:
+        if len(out) >= limit:
+            return
+        if node.get("type") == "paper" and needs_literature_lookup(node.get("url")):
+            out.append(node)
+        for child in node.get("children") or []:
+            if isinstance(child, dict):
+                walk(child)
+
+    walk(tree)
+    return out
 
 
 def needs_literature_lookup(url: Any) -> bool:
@@ -53,8 +81,13 @@ def resolve_paper_url(
     """
     y = str(year).strip() if year is not None and str(year).strip() else None
 
+    cached = literature_cache.get_cached(title, authors, y)
+    if cached is not None:
+        return cached.url
+
     u = arxiv_client.search_arxiv_abs_url(title, authors)
     if u:
+        literature_cache.put_cached(title, authors, y, u)
         return u
 
     d = _step_delay()
@@ -62,56 +95,45 @@ def resolve_paper_url(
         time.sleep(d)
     u = semantic_scholar.search_best_literature_url(title, authors, y)
     if u:
+        literature_cache.put_cached(title, authors, y, u)
         return u
 
     if d:
         time.sleep(d)
     u = openalex_client.search_best_literature_url(title, authors, y)
+    literature_cache.put_cached(title, authors, y, u)
     return u
 
 
 def enrich_tree_with_literature(tree: Dict[str, Any]) -> Dict[str, Any]:
     """
-    深度优先遍历 paper 节点，补全 url（原地修改）。
-    论文与论文之间的间隔复用 ARXIV_QUERY_DELAY。
+    为 paper 节点补全 url（原地修改）。
+    多篇论文并行解析（LITERATURE_ENRICH_WORKERS）；arXiv 请求在 arxiv_client 内全局限频。
     """
-    delay = arxiv_client._delay_seconds()
     limit = _max_papers()
-    done = 0
-    last_request_at = 0.0
+    papers = _collect_papers_needing_url(tree, limit)
+    if not papers:
+        return tree
 
-    def tick_before_paper():
-        nonlocal last_request_at
-        if delay <= 0:
-            return
-        now = time.monotonic()
-        wait = delay - (now - last_request_at)
-        if wait > 0:
-            time.sleep(wait)
-        last_request_at = time.monotonic()
+    workers = min(_enrich_workers(), len(papers))
 
-    def walk(node: Dict[str, Any]) -> None:
-        nonlocal done
-        if done >= limit:
-            return
-        if node.get("type") == "paper":
-            if needs_literature_lookup(node.get("url")):
-                if done >= limit:
-                    return
-                tick_before_paper()
-                yr = node.get("year")
-                u = resolve_paper_url(
-                    str(node.get("name") or ""),
-                    str(node.get("authors") or "") if node.get("authors") else None,
-                    yr,
-                )
-                done += 1
-                if u:
-                    node["url"] = u
-            return
-        for child in node.get("children") or []:
-            if isinstance(child, dict):
-                walk(child)
+    def job(n: Dict[str, Any]) -> tuple:
+        yr = n.get("year")
+        u = resolve_paper_url(
+            str(n.get("name") or ""),
+            str(n.get("authors") or "") if n.get("authors") else None,
+            yr,
+        )
+        return n, u
 
-    walk(tree)
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = [ex.submit(job, n) for n in papers]
+        for fut in as_completed(futures):
+            try:
+                node, url = fut.result()
+                if url:
+                    node["url"] = url
+            except Exception:
+                print(f"论文链接补全任务异常: {traceback.format_exc()}")
+
     return tree

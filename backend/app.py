@@ -2,7 +2,7 @@ import os
 import json
 import requests
 import traceback
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
 import restore
@@ -13,6 +13,29 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+# 项目根目录下的 frontend（与 backend 并列），用于浏览器直接打开后端地址时加载界面
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_FRONTEND_DIR = os.path.normpath(os.path.join(_PROJECT_ROOT, "frontend"))
+
+
+def _get_frontend_dir() -> str:
+    """可通过环境变量 KNOWLEDGE_TREE_FRONTEND_DIR 覆盖（部署目录结构不同时）。"""
+    env = (os.getenv("KNOWLEDGE_TREE_FRONTEND_DIR") or "").strip()
+    if env:
+        p = os.path.normpath(env)
+        if os.path.isfile(os.path.join(p, "index.html")):
+            return p
+    return _FRONTEND_DIR
+
+
+def _http_port() -> int:
+    """默认 5050：避免 Windows「无线显示」等占用 5000 时连错服务得到 404。"""
+    for key in ("PORT", "FLASK_RUN_PORT"):
+        v = (os.getenv(key) or "").strip()
+        if v.isdigit():
+            return max(1, min(int(v), 65535))
+    return 5050
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_ENDPOINT = os.getenv("DEEPSEEK_ENDPOINT", "https://api.deepseek.com/v1/chat/completions")
@@ -208,16 +231,39 @@ def generate_knowledge_tree():
         fill_desc(tree_data)
         clean_identical_importance(tree_data)   
 
-    # 论文链接补全（即使回退树也尝试）
-    try:
-        paper_enrich.enrich_tree_with_literature(tree_data)
-    except Exception as e:
-        print(f"论文链接补全失败: {e}")
+    # 论文链接补全（可能非常耗时，可用环境变量关闭以加速首屏）
+    enrich_on_generate = (os.getenv("LITERATURE_ENRICH_ON_GENERATE", "1") or "").strip().lower() not in ("0", "false", "no", "off")
+    if enrich_on_generate:
+        try:
+            paper_enrich.enrich_tree_with_literature(tree_data)
+        except Exception as e:
+            print(f"论文链接补全失败: {e}")
     assign_default_importance(tree_data) 
     tree_data['created_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     tree_data['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     return jsonify(tree_data)
+
+
+@app.route("/", methods=["GET"])
+@app.route("/index.html", methods=["GET"])
+def root():
+    """浏览器访问根路径时返回前端页面，避免误以为后端地址无效（404）。"""
+    fd = _get_frontend_dir()
+    index_path = os.path.join(fd, "index.html")
+    if os.path.isfile(index_path):
+        return send_from_directory(fd, "index.html")
+    return (
+        jsonify(
+            {
+                "service": "Knowledge-Tree API",
+                "error": "未找到 frontend/index.html",
+                "hint": "请从项目根目录启动，或手动打开 frontend/index.html",
+                "try": {"health": "/health"},
+            }
+        ),
+        503,
+    )
 
 
 @app.route('/health', methods=['GET'])
@@ -941,4 +987,7 @@ def assign_default_importance(node, sibling_index=0):
         assign_default_importance(child, idx)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    _port = _http_port()
+    print(f"\n  Knowledge-Tree  前端与 API:  http://127.0.0.1:{_port}/")
+    print(f"  健康检查:  http://127.0.0.1:{_port}/health\n")
+    app.run(debug=True, host="0.0.0.0", port=_port)

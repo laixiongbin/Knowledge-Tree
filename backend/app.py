@@ -13,7 +13,7 @@ from datetime import datetime
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, allow_headers=["Content-Type", "X-DeepSeek-API-Key"])
 
 # 项目根目录下的 frontend（与 backend 并列），用于浏览器直接打开后端地址时加载界面
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -41,10 +41,29 @@ def _http_port() -> int:
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_ENDPOINT = os.getenv("DEEPSEEK_ENDPOINT", "https://api.deepseek.com/v1/chat/completions")
 
-HEADERS = {
-    "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-    "Content-Type": "application/json"
-}
+_DEEPSEEK_KEY_MAX_LEN = 512
+
+
+def _deepseek_auth_headers(api_key: str) -> dict:
+    return {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+
+def _resolve_deepseek_key() -> str | None:
+    """优先使用请求中的用户密钥（请求头或 JSON），否则使用环境变量。"""
+    h = (request.headers.get("X-DeepSeek-API-Key") or "").strip()
+    if h:
+        return h[:_DEEPSEEK_KEY_MAX_LEN]
+    data = request.get_json(silent=True)
+    if isinstance(data, dict):
+        for fld in ("deepseek_api_key", "deepseekApiKey"):
+            v = data.get(fld)
+            if isinstance(v, str) and v.strip():
+                return v.strip()[:_DEEPSEEK_KEY_MAX_LEN]
+    env_k = (DEEPSEEK_API_KEY or "").strip()
+    return env_k[:_DEEPSEEK_KEY_MAX_LEN] if env_k else None
 
 
 DEEPSEEK_SYSTEM_TREE = """你是知识树生成助手。请根据用户主题输出一个 JSON 对象（只输出 JSON，不要其他文字）。
@@ -162,11 +181,13 @@ def generate_fallback_tree(keyword):
         ]
     }
 
-def call_deepseek(prompt):
-    if not DEEPSEEK_API_KEY or not str(DEEPSEEK_API_KEY).strip():
+def call_deepseek(prompt, api_key: str | None = None):
+    key = (api_key or "").strip() or (DEEPSEEK_API_KEY or "").strip()
+    if not key:
         print("DEEPSEEK_API_KEY 未配置")
         return None, "未配置 DEEPSEEK_API_KEY"
 
+    headers = _deepseek_auth_headers(key)
     payload = {
         "model": "deepseek-chat",
         "messages": [
@@ -179,7 +200,7 @@ def call_deepseek(prompt):
     }
     try:
         print(f"正在请求 DeepSeek API，主题: {prompt[:50]}...")
-        response = requests.post(DEEPSEEK_ENDPOINT, headers=HEADERS, json=payload, timeout=90)
+        response = requests.post(DEEPSEEK_ENDPOINT, headers=headers, json=payload, timeout=90)
         if not response.ok:
             print(f"HTTP {response.status_code}: {response.text[:200]}")
             return None, f"API 返回 {response.status_code}"
@@ -221,7 +242,7 @@ def generate_knowledge_tree():
 
 节点 name 必须具体（真实术语、算法/模型名、经典问题、具体论文题目等），禁止使用「术语分类」「术语定义」「概念层级」等空洞类目；description 须包含可核对的知识点，避免泛泛空话。"""
     
-    tree_data, err = call_deepseek(prompt)
+    tree_data, err = call_deepseek(prompt, api_key=_resolve_deepseek_key())
     if tree_data is None:
         print(f" API 生成失败，使用回退树。错误: {err}")
         tree_data = generate_fallback_tree(keyword)
@@ -828,6 +849,10 @@ def expand_node():
         "每个 description 须含可核对的具体信息，不得空话。"
     )
 
+    api_key = _resolve_deepseek_key()
+    if not api_key:
+        return jsonify({"code": 400, "message": "未配置 DeepSeek API 密钥，请在页面填写或设置环境变量 DEEPSEEK_API_KEY"}), 400
+
     def _post_expand(user_text: str, temperature: float):
         payload = {
             "model": "deepseek-chat",
@@ -839,7 +864,7 @@ def expand_node():
             "max_tokens": 2048,
             "response_format": {"type": "json_object"},
         }
-        response = requests.post(DEEPSEEK_ENDPOINT, headers=HEADERS, json=payload, timeout=60)
+        response = requests.post(DEEPSEEK_ENDPOINT, headers=_deepseek_auth_headers(api_key), json=payload, timeout=60)
         if response.status_code != 200:
             return None
         result = response.json()
@@ -1031,6 +1056,10 @@ def auto_importance(tree_name):
 
 只输出节点名称的 JSON 数组，例如：["概念A", "概念B", "论文C"]
 """
+        api_key = _resolve_deepseek_key()
+        if not api_key:
+            return jsonify({"code": 400, "message": "未配置 DeepSeek API 密钥"}), 400
+
         payload = {
             "model": "deepseek-chat",
             "messages": [
@@ -1041,7 +1070,7 @@ def auto_importance(tree_name):
             "response_format": {"type": "json_object"}
         }
         
-        response = requests.post(DEEPSEEK_ENDPOINT, headers=HEADERS, json=payload, timeout=60)
+        response = requests.post(DEEPSEEK_ENDPOINT, headers=_deepseek_auth_headers(api_key), json=payload, timeout=60)
         if response.status_code != 200:
             return jsonify({'code': 500, 'message': 'AI排序失败'}), 500
         

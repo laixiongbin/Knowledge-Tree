@@ -173,13 +173,66 @@
             white-space: nowrap;
         }
         .control-bar button:active { transform: scale(0.97); }
+        .api-key-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem 0.75rem;
+            margin-bottom: 1rem;
+            padding: 0.65rem 1rem;
+            background: #f8fafc;
+            border-radius: 1rem;
+            border: 1px solid #e2e8f0;
+            font-size: 0.85rem;
+        }
+        .api-key-bar label {
+            color: #475569;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .api-key-bar input[type="password"],
+        .api-key-bar input[type="text"] {
+            flex: 1;
+            min-width: 180px;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            font-family: ui-monospace, monospace;
+        }
+        .api-key-bar .api-key-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+        .api-key-bar .api-key-actions button {
+            padding: 0.4rem 0.75rem;
+            border-radius: 0.5rem;
+            border: none;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: #64748b;
+            color: white;
+        }
+        .api-key-bar .api-key-actions button.primary {
+            background: #3b82f6;
+        }
+        .api-key-bar .api-key-hint {
+            width: 100%;
+            margin: 0;
+            font-size: 0.72rem;
+            color: #64748b;
+            line-height: 1.4;
+        }
         .tree-canvas-container {
             background: #000000;
             border-radius: 1.5rem;
             box-shadow: 0 20px 35px -12px rgba(0,0,0,0.15);
             padding: 0;
             margin-bottom: 1rem;
-            overflow: hidden;
+            overflow: auto;
+            max-height: min(78vh, 920px);
             position: relative;
             cursor: grab;
         }
@@ -307,6 +360,16 @@
                 <button id="saveCurrentBtn" style="background: #10b981;">保存当前树</button>
                 <button id="deleteCurrentBtn" style="background: #ef4444;">删除当前树</button>
             </div>
+            <div class="api-key-bar" id="apiKeyBar">
+                <label for="deepseekApiKeyInput">DeepSeek API Key</label>
+                <input type="password" id="deepseekApiKeyInput" autocomplete="off" placeholder="可选：填写后调用大模型；不填则用服务端 .env" spellcheck="false">
+                <div class="api-key-actions">
+                    <button type="button" class="primary" id="saveDeepseekKeyBtn" title="写入本机浏览器，仅本地保存">保存到浏览器</button>
+                    <button type="button" id="clearDeepseekKeyBtn" title="清除输入与本地记录">清除</button>
+                    <button type="button" id="toggleDeepseekKeyVisibilityBtn" title="显示/隐藏密钥">显示</button>
+                </div>
+                <p class="api-key-hint">密钥保存在浏览器 localStorage，不会写入知识树 JSON。若服务端已配置 DEEPSEEK_API_KEY，可不填。</p>
+            </div>
             <div class="tree-canvas-container" id="canvasContainer">
                 <canvas id="treeCanvas" width="900" height="500"></canvas>
             </div>
@@ -385,6 +448,15 @@
         const TREE_LEVEL_GAP = Math.ceil(
             NODE_LABEL_ANCHOR_GAP + NODE_LABEL_PADDING * 2 + NODE_LABEL_MAX_WIDTH + 56
         );
+        /** 画布上下留白（与 computeStaticLayout 内一致） */
+        const TREE_VERTICAL_PADDING = 45;
+        /**
+         * 每个叶子在垂直方向至少占用的“带宽”（标签高约 18px，过小会兄弟挤在一起）。
+         * 节点变多时通过垫高 canvas，让比例布局仍保留可读间距。
+         */
+        const TREE_MIN_LEAF_VERTICAL_GAP = 40;
+        const TREE_BASE_INNER_HEIGHT = 390;
+        const TREE_MAX_CANVAS_HEIGHT = 12000;
         let canvasTooltipEl = null;
 
         function ensureCanvasTooltip() {
@@ -577,7 +649,7 @@
             const positions = new Map();
             const startX = 70;
             const levelGap = TREE_LEVEL_GAP;
-            const verticalPadding = 45;
+            const verticalPadding = TREE_VERTICAL_PADDING;
 
             function assignPositions(nodeId, depth, topY, bottomY) {
                 const kids = childrenMap.get(nodeId) || [];
@@ -706,9 +778,35 @@
             const levelGap = TREE_LEVEL_GAP;
             const baseWidth = 400;
             const dynamicWidth = Math.max(baseWidth + (maxDepth - 1) * levelGap, 700);
+
+            const childrenMap = new Map();
+            edges.forEach(edge => {
+                if (!childrenMap.has(edge.from)) childrenMap.set(edge.from, []);
+                childrenMap.get(edge.from).push(edge.to);
+            });
+            const hasParent = new Set(edges.map(e => e.to));
+            const layoutRootId = nodes.find(n => !hasParent.has(n.id))?.id || nodes[0]?.id;
+
+            function countLeavesForLayout(nodeId) {
+                const kids = childrenMap.get(nodeId) || [];
+                if (!kids.length) return 1;
+                return kids.reduce((sum, kid) => sum + countLeavesForLayout(kid), 0);
+            }
+
+            const leafCount = layoutRootId ? Math.max(1, countLeavesForLayout(layoutRootId)) : 1;
+            const innerHeight = Math.max(
+                TREE_BASE_INNER_HEIGHT,
+                leafCount * TREE_MIN_LEAF_VERTICAL_GAP
+            );
+            const dynamicHeight = Math.min(
+                TREE_MAX_CANVAS_HEIGHT,
+                innerHeight + 2 * TREE_VERTICAL_PADDING
+            );
+
             canvas.width = dynamicWidth;
-            canvas.height = 480;
+            canvas.height = dynamicHeight;
             canvas.style.width = `${dynamicWidth}px`;
+            canvas.style.height = `${dynamicHeight}px`;
             canvas.style.maxWidth = '100%';
             document.getElementById('canvasContainer').style.overflowX = 'auto';
             const positioned = computeStaticLayout(nodes, edges, canvas.width, canvas.height);

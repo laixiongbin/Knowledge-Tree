@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import requests
 import traceback
@@ -55,6 +56,10 @@ DEEPSEEK_SYSTEM_TREE = """你是知识树生成助手。请根据用户主题输
 - 叶子节点可以是 type="paper" 或 type="concept"。
 - 同一父节点下 children 可以混合 concept 和 paper。
 - paper 节点必须包含：name, type="paper", quote, url(不知道留空), authors, year, children=[]。
+
+**禁止占位式命名与空描述：**
+- 每个节点的 name 须是该主题下**可独立指称**的具体概念、方法、子问题、模型名或文献题名；禁止「术语分类」「术语定义」「概念分类」「核心概念」「基础概念」「关键术语」「相关理论」「应用场景」「背景知识」「拓展知识」「主要内容」等可套在任何课题上的空话。
+- description 须写清**实质信息**（机制、要点、与其他节点的关系、典型用途等至少其一），不要仅重复 name，也不要只写「关于…的介绍」「相关知识」。
 
 **关于 importance 字段：**
 - 每个节点必须包含 importance 字段，值为正整数。
@@ -212,7 +217,9 @@ def generate_knowledge_tree():
     if not keyword:
         return jsonify({'error': '请提供关键词'}), 400
 
-    prompt = f"""请为主题「{keyword}」生成一棵多层级知识树（深度4-6层），展现完整学习脉络。每个概念节点尽量提供 description。输出严格的 JSON 对象。"""
+    prompt = f"""请为主题「{keyword}」生成一棵多层级知识树（深度4-6层），展现完整学习脉络。每个概念节点尽量提供 description。输出严格的 JSON 对象。
+
+节点 name 必须具体（真实术语、算法/模型名、经典问题、具体论文题目等），禁止使用「术语分类」「术语定义」「概念层级」等空洞类目；description 须包含可核对的知识点，避免泛泛空话。"""
     
     tree_data, err = call_deepseek(prompt)
     if tree_data is None:
@@ -719,65 +726,142 @@ def get_statistics():
             'message': f'获取统计失败: {str(e)}'
         }), 500
 
+_PLACEHOLDER_NODE_NAMES = frozenset({
+    "重要概念", "核心概念", "基础概念", "关键概念", "基本概念", "一般概念",
+    "相关术语", "关键术语", "专业术语", "核心术语",
+    "术语分类", "术语定义", "概念分类", "概念定义", "知识分类", "名词解释",
+    "主要内容", "拓展知识", "相关理论", "应用场景", "背景知识", "前沿动态",
+    "相关论文", "经典论文", "代表性论文", "重要文献",
+    "前言", "绪论", "概述", "小结", "总结", "附录",
+})
+
+
+def _is_placeholder_knowledge_node_name(name: str) -> bool:
+    n = (name or "").strip()
+    if not n:
+        return True
+    if n in _PLACEHOLDER_NODE_NAMES:
+        return True
+    if re.match(r"^(子)?概念\d+$", n):
+        return True
+    for prefix in ("术语", "相关", "基础", "核心", "关键", "重要", "主要"):
+        for suffix in ("分类", "定义", "概述", "介绍", "说明"):
+            if n == prefix + suffix:
+                return True
+    return False
+
+
+def _expand_children_have_placeholders(children: list) -> bool:
+    return any(_is_placeholder_knowledge_node_name(c.get("name", "")) for c in children)
+
+
+def _expand_extract_children(obj):
+    """从模型返回的 JSON 中解析子节点列表（兼容多种键名与嵌套）。"""
+    def _is_node(d):
+        return isinstance(d, dict) and str(d.get("name", "")).strip()
+
+    if isinstance(obj, list):
+        return [x for x in obj if _is_node(x)]
+    if not isinstance(obj, dict):
+        return []
+    for key in ("children", "nodes", "items", "data", "子节点", "results"):
+        v = obj.get(key)
+        if isinstance(v, list):
+            out = [x for x in v if _is_node(x)]
+            if out:
+                return out
+    for v in obj.values():
+        if isinstance(v, list) and v:
+            out = [x for x in v if _is_node(x)]
+            if out:
+                return out
+    return []
+
+
 @app.route('/expand', methods=['POST'])
 def expand_node():
     """接收父节点信息，生成其子节点并返回"""
     data = request.get_json()
     parent_name = data.get('parent_name', '').strip()
-    parent_path = data.get('parent_path', '')   # 用于上下文
-    tree_name = data.get('tree_name', '')       # 当前树名（可选）
-    keyword = data.get('keyword', parent_name)  # 默认使用父节点名
-    
+    parent_path = data.get('parent_path', '').strip()
+    tree_name = data.get('tree_name', '').strip()
+    keyword = (data.get('keyword') or parent_name or '').strip() or parent_name
+
     if not parent_name:
         return jsonify({'error': '缺少父节点名称'}), 400
-    
-    prompt = f"""请为主题「{keyword}」生成**仅其直接子节点**（深度为1，不要超过2层）。输出格式为一个 children 数组，每个子节点可以是 concept 或 paper。
-要求：
-- 每个子节点包含 name, type, description (可选)
-- paper 节点需包含 authors, year, quote, url(可留空)
-- 最多生成 5 个子节点
-- 输出必须是合法的 JSON 数组，例如：
-[
-  {{"name":"子概念1","type":"concept","description":"说明"}},
-  {{"name":"相关论文","type":"paper","authors":"..."}}
-]
+
+    ctx_lines = []
+    if tree_name:
+        ctx_lines.append(f"整棵知识树名称：{tree_name}")
+    if parent_path:
+        ctx_lines.append(f"当前节点在树中的路径：{parent_path}")
+    ctx_block = ("\n".join(ctx_lines) + "\n\n") if ctx_lines else ""
+
+    prompt = f"""{ctx_block}请在知识树中为**父节点「{parent_name}」**生成**下一层直接子节点**（只扩展一层；每个子节点的 children 必须为空数组 []）。
+与父节点相关的细分主题用「{keyword}」表示（可与父节点名相同或更具体）。
+
+硬性要求：
+1. 只输出**一个 JSON 对象**，有且仅有键 "children"，值为数组；数组长度 2～5，元素为子节点对象。
+2. 每个子节点必须含：name, type（concept 或 paper）, description（一两句具体说明）, children（固定为 []）。
+3. paper 类型还须含：authors, year, quote；url 若无真实链接则填空字符串。
+4. **禁止**使用可套在任何主题上的占位名称，例如：「术语分类」「术语定义」「概念分类」「重要概念」「核心概念」「基础概念」「关键概念」「相关术语」「关键术语」「名词解释」「主要内容」「拓展知识」「相关理论」「应用场景」「背景知识」等泛泛可复用的说法。每个 name 必须与「{keyword}」及父节点「{parent_name}」的学科语境**可区分、可落地**，优先使用**真实术语、方法名、子问题或具体文献标题**。
+5. description 必须写出**实质信息**（机制、公式/模型名、对比对象、年代或代表人物等至少一项），不得仅为重复 name 或与 name 同义的空话。
+6. 论文节点的 name 必须是**具体论文题目或学界常用简称**，不要单独使用「相关论文」「经典论文」「代表性论文」等字样。
+
+格式示例（字段需按主题替换，勿照搬内容）：
+{{"children":[
+  {{"name":"缩放点积注意力","type":"concept","description":"QKV 与缩放因子的注意力计算方式","children":[]}},
+  {{"name":"Attention Is All You Need","type":"paper","authors":"Vaswani et al.","year":"2017","quote":"","url":"","children":[]}}
+]}}
 """
- 
-    system_prompt = "你是知识树生成助手。用户会要求生成某个主题的直接子节点，请只输出一个 JSON 数组，不要输出其他文字。"
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.6,
-        "max_tokens": 2048,
-        "response_format": {"type": "json_object"},
-    }
+
+    system_prompt = (
+        "你是严谨的知识结构编辑，为知识树补全子节点。"
+        "必须严格遵守用户给出的 JSON 形状（根对象仅含 children 数组）与「禁止占位泛称」规则。"
+        "只输出合法 JSON，不要 Markdown 代码块、不要额外说明文字。"
+    )
+    expand_retry_user = (
+        prompt
+        + "\n\n【再次强调】上一版输出不合格：不得使用「术语分类」「术语定义」「概念分类」等类目式名称。"
+        f"每个 name 必须是与父节点「{parent_name}」及主题「{keyword}」直接相关的**具名**知识点"
+        "（真实算法、定理、模型、数据集、具体问题或论文题目）；"
+        "每个 description 须含可核对的具体信息，不得空话。"
+    )
+
+    def _post_expand(user_text: str, temperature: float):
+        payload = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_text},
+            ],
+            "temperature": temperature,
+            "max_tokens": 2048,
+            "response_format": {"type": "json_object"},
+        }
+        response = requests.post(DEEPSEEK_ENDPOINT, headers=HEADERS, json=payload, timeout=60)
+        if response.status_code != 200:
+            return None
+        result = response.json()
+        content = result["choices"][0]["message"]["content"]
+        obj = json.loads(content)
+        out = _expand_extract_children(obj)[:5]
+        for child in out:
+            if "type" not in child:
+                child["type"] = "concept"
+            if "children" not in child:
+                child["children"] = []
+        return out
 
     try:
-        response = requests.post(DEEPSEEK_ENDPOINT, headers=HEADERS, json=payload, timeout=60)
-        if response.status_code == 200:
-            result = response.json()
-            content = result['choices'][0]['message']['content']
-            # 尝试解析 JSON
-            import json
-            obj = json.loads(content)
-            if isinstance(obj, list):
-                children = obj
-            elif isinstance(obj, dict) and 'children' in obj:
-                children = obj['children']
-            else:
-                children = []
-            # 为每个子节点补充必要字段
-            for child in children:
-                if 'type' not in child:
-                    child['type'] = 'concept'
-                if 'children' not in child:
-                    child['children'] = []
-            return jsonify({'code': 200, 'children': children})
-        else:
+        children = _post_expand(prompt, 0.45)
+        if children is None:
             return jsonify({'code': 500, 'message': 'API调用失败'}), 500
+        if _expand_children_have_placeholders(children):
+            retry_children = _post_expand(expand_retry_user, 0.35)
+            if retry_children and not _expand_children_have_placeholders(retry_children):
+                children = retry_children
+        return jsonify({"code": 200, "children": children})
     except Exception as e:
         return jsonify({'code': 500, 'message': str(e)}), 500
 

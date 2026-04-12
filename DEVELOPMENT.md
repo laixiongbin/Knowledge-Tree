@@ -1,4 +1,4 @@
-# Knowledge-Tree 开发文档
+﻿# Knowledge-Tree 开发文档
 
 本文档主要面向项目开发者，描述此项目代码结构、运行方式、配置项、主要接口与打包流程。
 
@@ -7,7 +7,7 @@
 - **后端**：`backend/app.py`（Flask API 服务，负责知识树生成、保存、查询、扩展等）
 - **前端**：`frontend/`（静态页面 `index.html`，内联 JavaScript 通过 HTTP 调用后端 API）
 - **配置**：`.env`（DeepSeek API Key 与 Endpoint）
-- **数据存储**：`storage.json`（知识树持久化，具体读写在 `backend/restore.py`）
+- **数据存储**：默认 **`backend/storage.json`**（与 `app.py` 同目录；读写在 `backend/restore.py`）
 - **打包**：`AI_Knowledge_Tree.spec`（通过PyInstaller 配置）
 
 ## 环境准备
@@ -15,18 +15,19 @@
 - **操作系统**：Windows 10/11
 - **Python**：建议 3.10.x（本项目使用Python3.10.11）
 
-建议使用项目根目录下的虚拟环境（例如 `.venv`）：
+建议使用项目根目录下的虚拟环境（仓库中常见为 **`venv`** 或 **`.venv`**）：
 
 ```powershell
-& ".\.venv\Scripts\Activate.ps1"
+& ".\venv\Scripts\Activate.ps1"
+# 或: & ".\.venv\Scripts\Activate.ps1"
 python -m pip install -r requirements.txt
 ```
 
 ## 配置（.env）
 
-项目通过 `python-dotenv` 读取 `.env`。
+项目通过 `python-dotenv` 读取 `.env`。源码运行时优先加载**当前工作目录**下的 `.env`；**PyInstaller 单文件**运行时会**额外**尝试加载解压目录 **`sys._MEIPASS/.env`**（与 `spec` 中打入的 `.env` 对应）。
 
-在项目根目录创建 `.env`（参考 `.env`）：
+在项目根目录（或 exe 同目录）创建 `.env`（可参考仓库内示例，**勿将含真实 Key 的 `.env` 提交到 Git**）：
 
 ```dotenv
 DEEPSEEK_API_KEY=sk-xxxxx
@@ -45,7 +46,8 @@ DEEPSEEK_ENDPOINT=https://api.deepseek.com/v1/chat/completions
 在项目根目录或 `backend/` 目录启动均可，推荐在 `backend/` 下启动app.py
 
 ```powershell
-& ".\.venv\Scripts\python.exe" "backend\app.py"
+& ".\venv\Scripts\python.exe" "backend\app.py"
+# 或: & ".\.venv\Scripts\python.exe" "backend\app.py"
 ```
 
 默认监听地址（以实际输出为准）：
@@ -64,7 +66,11 @@ DEEPSEEK_ENDPOINT=https://api.deepseek.com/v1/chat/completions
   - 前端通过 `API_BASE` 调用 API：从后端打开页面时为当前站点 `origin`，直接打开本地 `index.html` 时回退为 `http://127.0.0.1:5050`
   - 后端已启用 CORS，通常可以正常请求
 
-> 备注：`http://127.0.0.1:5050/` 由后端直接返回 `frontend/index.html`。打包时 `frontend/` 已作为 PyInstaller `datas` 纳入。
+> 备注：`http://127.0.0.1:5050/` 由后端直接返回 `frontend/index.html`。打包时 `frontend/` 作为 PyInstaller `datas` 纳入后，运行时会从 **`sys._MEIPASS/frontend`** 或 exe 旁的 `frontend/` 解析路径（见 `backend/app.py` 中 `_default_frontend_dir()`）。环境变量 **`KNOWLEDGE_TREE_FRONTEND_DIR`** 可覆盖前端目录。
+
+### 前端中的 DeepSeek Key（可选）
+
+`index.html` 提供 **DeepSeek API Key** 输入框；浏览器将密钥保存在 **localStorage**（键名 `knowledgeTreeDeepseekApiKey`），并在调用 **`POST /generate`**、**`POST /expand`** 时自动附加请求头 **`X-DeepSeek-Api-Key`**。未填写时由服务端 `.env` 中的 **`DEEPSEEK_API_KEY`** 生效。
 
 ## 后端接口速览（backend/app.py）
 
@@ -91,6 +97,8 @@ DEEPSEEK_ENDPOINT=https://api.deepseek.com/v1/chat/completions
   - `PUT /api/tree/<tree_name>/node/<path:node_path>`：更新节点
   - `DELETE /api/tree/<tree_name>/node/<path:node_path>`：删除节点
   - `POST /api/tree/<tree_name>/batch_nodes`：批量节点操作
+  - `POST /api/tree/<tree_name>/reorder`：同级节点手动排序（`importance`）
+  - `POST /api/tree/<tree_name>/auto_importance`：调用 DeepSeek 对子节点排序（需有效 Key）
   - `GET /api/search`：搜索
   - `GET /api/stats`：统计
 
@@ -100,14 +108,16 @@ DEEPSEEK_ENDPOINT=https://api.deepseek.com/v1/chat/completions
 
 ## 数据存储
 
-- 默认存储文件：项目根目录 `storage.json`
+- 默认存储文件：与 **`backend/app.py` 同目录** 的 **`storage.json`**（见 `app.py` 中 `_STORAGE_FILE`）
 - 存取逻辑：`backend/restore.py`（例如 JSONStorage）
 
 ## 与 DeepSeek 的交互
 
-后端使用 `requests.post(...)` 调用 `DEEPSEEK_ENDPOINT`，并在请求头中带上：
+后端使用 `requests.post(...)` 调用 **`DEEPSEEK_ENDPOINT`**（默认 DeepSeek 兼容的 Chat Completions URL），并在请求头中带上：
 
-- `Authorization: Bearer <DEEPSEEK_API_KEY>`
+- `Authorization: Bearer <有效密钥>`
+
+其中 **`<有效密钥>`** 的解析顺序为：请求头 **`X-DeepSeek-Api-Key`** 或 JSON 中的 **`deepseek_api_key` / `deepseekApiKey`**（见 `API.md`）→ 环境变量 **`DEEPSEEK_API_KEY`**。
 
 返回内容期望为模型的 JSON 输出（代码做 JSON 解析和校验）。
 
@@ -116,21 +126,21 @@ DEEPSEEK_ENDPOINT=https://api.deepseek.com/v1/chat/completions
 项目使用 **PyInstaller** + `AI_Knowledge_Tree.spec` 打包：
 
 ```powershell
-& ".\.venv\Scripts\python.exe" -m PyInstaller ".\AI_Knowledge_Tree.spec"
+& ".\venv\Scripts\python.exe" -m PyInstaller ".\AI_Knowledge_Tree.spec"
 ```
 
 直接运行文件在：
 
 - `dist/AI_Knowledge_Tree.exe`
 
-### 分发安全：外部 .env
+### 分发与 `.env`
 
-当前 `AI_Knowledge_Tree.spec` 已配置为 **不内嵌 `.env`**（避免把 API Key 打进 exe）。
+当前 `AI_Knowledge_Tree.spec` 的 **`datas`** 中包含 **`frontend`** 与 **`.env`**（便于本地一键构建自测）。**对外分发时请从 `spec` 中移除真实 `.env` 条目**，或仅打包不含密钥的模板文件；接收方可以：
 
-发布给别人时：
+- 在 **exe 同目录** 放置自己的 `.env`，或
+- 仅使用网页上的 **DeepSeek API Key** 输入框（密钥仅存浏览器）。
 
-- 提供 `.env.`（不含真实 key）
-- 让使用者在 **exe 同目录** 自行创建 `.env`
+运行 exe 时建议**工作目录为 `dist/`**（与放置 `storage.json`、`.env` 的习惯一致）；根路径 `http://127.0.0.1:5050/` 应能直接打开打包进去的前端页面。
 
 ## 常见问题（Troubleshooting）
 
@@ -138,10 +148,9 @@ DEEPSEEK_ENDPOINT=https://api.deepseek.com/v1/chat/completions
 
 优先检查：
 
-- `.env` 是否存在、变量名是否正确
-- `DEEPSEEK_API_KEY` 是否有效、是否有额度
+- 页面 **DeepSeek API Key** 是否已填，或 `.env` 中 **`DEEPSEEK_API_KEY`** 是否有效、是否有额度
 - 后端终端输出是否有报错
-- 可通过运行test.py检查与deepseek的连接是否正常
+- 可使用项目根目录 **`test.py`** 或 **`backend/test_integration_api.py`** 排查网络与密钥（见 `API.md` 集成测试小节）
 
 ### 2) Windows 控制台编码导致崩溃
 
@@ -152,409 +161,11 @@ DEEPSEEK_ENDPOINT=https://api.deepseek.com/v1/chat/completions
 
 默认 **5050**（`PORT`）。若端口被占用，启动会失败；请改 `PORT` 或释放端口。勿误用已被系统占用的 **5000**（易出现 404）。
 
+### 4) 根路径返回 JSON「未找到 frontend/index.html」
 
+多见于**旧版 exe**或 **`spec` 未打入 `frontend`**。当前 `app.py` 会在 **PyInstaller** 解压目录 **`sys._MEIPASS/frontend`**、**exe 同目录 `frontend/`** 与源码仓库 `frontend/` 之间解析；请用最新代码重新打包，或设置环境变量 **`KNOWLEDGE_TREE_FRONTEND_DIR`** 指向含 `index.html` 的目录。
 
-### Knowledge-Tree 接口文档（后端 API）
+## 接口与参数约定
 
-本文档基于 `backend/app.py` 当前实现整理，默认服务地址：
+完整的路由、请求/响应示例、集成测试与环境变量说明见 [API.md](API.md)（避免与本文档重复维护）。
 
-- **Base URL**：`http://127.0.0.1:5050`
-- **Content-Type**：除 `GET` 外一般使用 `application/json`
-
-## 通用说明
-
-### 1) 返回格式约定
-
-本项目接口返回存在两种风格：
-
-- **风格 A（多数 `/api/*` 接口）**：`{ "code": 200, "data": ..., "message": "...", ... }`
-- **风格 B（部分接口，如 `/generate`）**：直接返回业务 JSON（没有 `code` 包裹）
-
-请以前端调用方式与本文档为准。
-
-### 2) 知识树数据结构（核心字段）
-
-知识树是一个递归结构（节点可嵌套 children）：
-
-```json
-{
-  "name": "注意力机制",
-  "type": "concept",
-  "description": "可选，概念说明",
-  "children": [
-    {
-      "name": "子概念",
-      "type": "concept",
-      "description": "可选",
-      "children": []
-    },
-    {
-      "name": "论文节点",
-      "type": "paper",
-      "authors": "可选",
-      "year": "可选",
-      "quote": "可选",
-      "url": "可选",
-      "children": []
-    }
-  ],
-  "created_at": "YYYY-MM-DD HH:mm:ss",
-  "updated_at": "YYYY-MM-DD HH:mm:ss"
-}
-```
-
-### 3) 节点路径（node_path / parent_path）
-
-后端使用 **“按 name 逐级匹配”** 的路径查找节点：
-
-- 路径分隔符：`/`
-- 示例：`根节点/一级子节点/二级子节点`
-- 注意：如果同一层级有重名节点，会导致路径歧义。
-
----
-
-## 健康检查
-
-### GET `/health`
-
-**用途**：检查服务是否存活。
-
-**响应**：
-
-```json
-{ "status": "ok" }
-```
-
----
-
-## 生成知识树
-
-### POST `/generate`
-
-**用途**：根据关键词调用 DeepSeek 生成一棵知识树；如果 DeepSeek 调用失败，会返回后端生成的“回退树”。
-
-**请求 Body**：
-
-```json
-{ "keyword": "注意力机制" }
-```
-
-**成功响应（200）**：直接返回知识树 JSON（不包 `code`）。
-
-**失败响应**：
-
-- `400`：缺少关键词
-
-```json
-{ "error": "请提供关键词" }
-```
-
-**示例（PowerShell）**：
-
-```powershell
-$body = @{ keyword = "注意力机制" } | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5050/generate" -ContentType "application/json" -Body $body
-```
-
----
-
-## 扩展节点（生成子节点）
-
-### POST `/expand`
-
-**用途**：给定父节点信息，生成其“直接子节点”（最多 5 个），用于前端点击节点后的扩展操作。
-
-**请求 Body**：
-
-```json
-{
-  "parent_name": "Transformer",
-  "parent_path": "AI 知识体系/深度学习/Transformer",
-  "tree_name": "AI 知识体系",
-  "keyword": "Transformer"
-}
-```
-
-字段说明：
-
-- **parent_name**（必填）：父节点名称（为空会返回 400）
-- **parent_path**（可选）：父节点路径（主要用于上下文/前端定位）
-- **tree_name**（可选）：当前知识树名称
-- **keyword**（可选）：用于生成的主题；缺省会用 `parent_name`
-
-**成功响应（200）**：
-
-```json
-{
-  "code": 200,
-  "children": [
-    { "name": "子概念1", "type": "concept", "description": "说明", "children": [] },
-    { "name": "相关论文", "type": "paper", "authors": "...", "year": "2024", "quote": "...", "url": "", "children": [] }
-  ]
-}
-```
-
-**失败响应**：
-
-- `400`：缺少父节点名称
-
-```json
-{ "error": "缺少父节点名称" }
-```
-
-- `500`：DeepSeek 调用或解析异常
-
-```json
-{ "code": 500, "message": "..." }
-```
-
----
-
-## 知识树列表/详情
-
-### GET `/api/trees`
-
-**用途**：获取所有知识树列表（带节点数量与预览）。
-
-**成功响应（200）**：
-
-```json
-{
-  "code": 200,
-  "data": [
-    {
-      "name": "树的存储名",
-      "title": "树显示名（通常等于根节点 name）",
-      "type": "root/concept/...",
-      "created_at": "YYYY-MM-DD HH:mm:ss",
-      "updated_at": "YYYY-MM-DD HH:mm:ss",
-      "node_count": 12,
-      "preview": "预览文本"
-    }
-  ],
-  "total": 1
-}
-```
-
-**失败响应**：`500`
-
-```json
-{ "code": 500, "message": "获取列表失败: ..." }
-```
-
-### GET `/api/tree/<tree_name>`
-
-**用途**：获取单棵知识树完整数据。
-
-**成功响应（200）**：
-
-```json
-{ "code": 200, "data": { /* 知识树 JSON */ } }
-```
-
-**失败响应**：
-
-- `404`：找不到
-- `500`：读取失败
-
----
-
-## 保存/更新/删除知识树
-
-### POST `/save`
-
-**用途**：保存一棵知识树（前端“保存当前树”按钮）。
-
-**请求 Body**：知识树 JSON（至少包含 `name`）。
-
-**成功响应（200）**：
-
-```json
-{
-  "code": 200,
-  "message": "知识树 \"xxx\" 保存成功！",
-  "data": { /* 保存后的知识树 */ }
-}
-```
-
-**失败响应**：
-
-- `400`：缺少 `name`
-- `500`：保存失败
-
-### PUT `/api/tree/<tree_name>`
-
-**用途**：更新整棵树（对现有树做 merge/update，并刷新 `updated_at`）。
-
-**请求 Body**：任意要更新的字段（会 `update()` 到已有数据）。
-
-**成功响应（200）**：
-
-```json
-{
-  "code": 200,
-  "message": "知识树 \"xxx\" 更新成功",
-  "data": { /* 更新后的树 */ }
-}
-```
-
-**失败响应**：
-
-- `404`：树不存在
-- `500`：更新失败
-
-### DELETE `/api/tree/<tree_name>`
-
-**用途**：删除整棵树。
-
-**成功响应（200）**：
-
-```json
-{ "code": 200, "message": "知识树 \"xxx\" 删除成功" }
-```
-
-**失败响应**：
-
-- `404`：树不存在
-- `500`：删除失败
-
----
-
-## 节点操作（增/改/删）
-
-### POST `/api/tree/<tree_name>/node`
-
-**用途**：向指定树添加一个节点；可通过 `parent_path` 指定父节点，否则添加到根节点 children。
-
-**请求 Body**（最小）：
-
-```json
-{ "name": "新节点名称" }
-```
-
-可选字段：
-
-- `type`：缺省为 `concept`
-- `description/authors/year/quote/url/children/...`
-- `parent_path`：父节点路径
-
-**成功响应（200）**：
-
-```json
-{
-  "code": 200,
-  "message": "节点 \"xxx\" 添加成功",
-  "data": { /* 新节点 */ }
-}
-```
-
-**失败响应**：
-
-- `404`：树不存在 / 父节点路径不存在
-- `400`：缺少 name
-- `500`：添加失败
-
-### PUT `/api/tree/<tree_name>/node/<path:node_path>`
-
-**用途**：更新某个节点（按路径查找，找到后对节点执行 `node.update(update_data)`）。
-
-**请求 Body**：要更新的字段，例如：
-
-```json
-{ "description": "新的说明", "type": "concept" }
-```
-
-**成功响应（200）**：
-
-```json
-{ "code": 200, "message": "节点 \"xxx\" 更新成功", "data": { /* 更新后的节点 */ } }
-```
-
-**失败响应**：
-
-- `404`：树或节点不存在
-- `500`：更新失败
-
-### DELETE `/api/tree/<tree_name>/node/<path:node_path>`
-
-**用途**：删除某个节点（通过拆分路径，定位父节点后按 `name` 删除）。
-
-**成功响应（200）**：
-
-```json
-{ "code": 200, "message": "节点 \"xxx\" 删除成功" }
-```
-
-**失败响应**：
-
-- `404`：树不存在 / 节点不存在
-- `500`：删除失败
-
----
-
-## 批量节点操作
-
-### POST `/api/tree/<tree_name>/batch_nodes`
-
-**用途**：批量添加多个节点（列表形式），每个节点可携带 `parent_path`。
-
-**请求 Body**：数组
-
-```json
-[
-  { "name": "节点1", "type": "concept" },
-  { "name": "节点2", "parent_path": "根/父节点", "type": "concept" }
-]
-```
-
-**成功响应（200）**：
-
-```json
-{ "code": 200, "message": "成功添加 2 个节点", "count": 2 }
-```
-
-**失败响应**：
-
-- `404`：树不存在
-- `400`：Body 不是数组
-- `500`：批量添加失败
-
----
-
-## 搜索与统计
-
-### GET `/api/search?q=<keyword>`
-
-**用途**：按关键字搜索知识树（匹配 `tree_name` 或根节点 `name` 的包含关系，忽略大小写）。
-
-参数：
-
-- `q`：搜索关键字；为空则等价于调用 `/api/trees`
-
-**成功响应（200）**：
-
-```json
-{ "code": 200, "data": [ /* 同 /api/trees 列表项 */ ], "total": 1 }
-```
-
-**失败响应**：`500`
-
-### GET `/api/stats`
-
-**用途**：统计所有树的数量、总节点数、论文节点数、概念节点数。
-
-**成功响应（200）**：
-
-```json
-{
-  "code": 200,
-  "data": {
-    "total_trees": 3,
-    "total_nodes": 120,
-    "total_papers": 10,
-    "total_concepts": 110
-  }
-}
-```
-
-**失败响应**：`500`

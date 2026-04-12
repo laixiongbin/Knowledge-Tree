@@ -1,11 +1,34 @@
 # Knowledge-Tree 接口文档（后端 API）
 
-本文档基于 `backend/app.py` 当前实现整理，默认服务地址：
+本文档基于 `backend/app.py` 当前实现整理。环境与打包说明见 [DEVELOPMENT.md](DEVELOPMENT.md)。
+
+默认服务地址：
 
 - **Base URL**：`http://127.0.0.1:5050`（默认端口；可用环境变量 `PORT` 覆盖。Windows 上 **5000** 常被系统服务占用，若连错进程会出现 **404**。）
 - **Content-Type**：除 `GET` 外一般使用 `application/json`
 
 ## 通用说明
+
+### DeepSeek 密钥（可选，按请求覆盖）
+
+调用 **DeepSeek** 的接口需要有效 API Key。服务端默认读取环境变量 **`DEEPSEEK_API_KEY`**（及 `.env`）。此外，每个请求可用以下方式**临时指定用户自己的密钥**（优先级高于环境变量）：
+
+1. **HTTP 请求头**：`X-DeepSeek-Api-Key: sk-...`
+2. **JSON Body**（仅适用于带 JSON 体的 `POST`）：`deepseek_api_key` 或 `deepseekApiKey`
+
+**当前会使用上述逻辑的接口**：
+
+- `POST /generate`
+- `POST /expand`
+- `POST /api/tree/<tree_name>/auto_importance`
+
+未提供请求级密钥且环境变量也未配置时，`/generate` 仍会返回**回退树**；`/expand` 与 `auto_importance` 在无密钥时可能返回 **500** 或业务错误。
+
+**安全提示**：请求级密钥会经本服务转发至 DeepSeek，请勿在不可信网络泄露；浏览器前端若填写密钥，通常保存在 **localStorage**（同源页面可见）。
+
+### CORS
+
+后端对跨域请求允许请求头 **`Content-Type`**、**`X-DeepSeek-Api-Key`**（便于 `file://` 或其它端口打开的前端页面调用 API）。
 
 ### 1) 返回格式约定
 
@@ -61,7 +84,16 @@
 
 ### GET `/` 与 `/index.html`
 
-**用途**：由后端 **直接返回** 仓库中的 `frontend/index.html`，浏览器打开 `http://127.0.0.1:5050/`（或与 `PORT` 一致）即可进入知识树界面（与 API 同源，避免误以为服务异常）。若进程的工作目录或部署方式导致找不到该文件，则返回 `503` 与 JSON 说明。
+**用途**：由后端 **直接返回** `frontend/index.html`，浏览器打开 `http://127.0.0.1:5050/`（或与 `PORT` 一致）即可进入知识树界面（与 API 同源）。
+
+**前端文件解析顺序**（与 `backend/app.py` 一致）：
+
+1. 环境变量 **`KNOWLEDGE_TREE_FRONTEND_DIR`**：若指向的目录下存在 `index.html`，则使用该目录。
+2. **PyInstaller 单文件（`-F`）**：打包时若使用 `--add-data "frontend;frontend"`，解压目录 **`sys._MEIPASS/frontend`** 下的 `index.html`。
+3. **可执行文件同目录**：`exe` 所在目录下的 **`frontend/index.html`**（若存在）。
+4. **源码运行**：仓库根目录下的 **`frontend/index.html`**。
+
+若以上均找不到 `index.html`，返回 **`503`** 与 JSON 说明（`error` / `hint` / `try.health`）。
 
 ---
 
@@ -91,6 +123,8 @@
 { "keyword": "注意力机制" }
 ```
 
+可选：在 Body 中增加 **`deepseek_api_key`**（或 **`deepseekApiKey`**），或使用请求头 **`X-DeepSeek-Api-Key`**，见上文「DeepSeek 密钥」。
+
 **成功响应（200）**：直接返回知识树 JSON（不包 `code`）。
 
 **失败响应**：
@@ -106,6 +140,9 @@
 ```powershell
 $body = @{ keyword = "注意力机制" } | ConvertTo-Json
 Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5050/generate" -ContentType "application/json" -Body $body
+
+# 使用请求头传入 DeepSeek Key（示例）
+# Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5050/generate" -Headers @{ "X-DeepSeek-Api-Key" = "sk-..." } -ContentType "application/json" -Body $body
 ```
 
 ### 生成为什么慢、如何加速
@@ -186,6 +223,8 @@ $env:INTEGRATION_DIRECT_DEEPSEEK = "1"
 - **tree_name**（可选）：当前知识树名称
 - **keyword**（可选）：用于生成的主题；缺省会用 `parent_name`
 
+可选：请求头 **`X-DeepSeek-Api-Key`**，或 Body 中的 **`deepseek_api_key`** / **`deepseekApiKey`**（见「DeepSeek 密钥」）。
+
 **成功响应（200）**：
 
 ```json
@@ -260,6 +299,44 @@ $env:INTEGRATION_DIRECT_DEEPSEEK = "1"
 
 - `404`：找不到
 - `500`：读取失败
+
+---
+
+## 同级节点排序（手动 / AI）
+
+### POST `/api/tree/<tree_name>/reorder`
+
+**用途**：按给定顺序重排某一父节点下的**直接子节点**，并写入 `importance`（1 起递增）。
+
+**请求 Body**：
+
+```json
+{
+  "parent_path": "根/子路径",
+  "ordered_names": ["子节点A", "子节点B"]
+}
+```
+
+- **parent_path**（可选）：为空字符串时表示重排**根节点**的 `children`。
+- **ordered_names**（必填）：子节点 `name` 列表，顺序即新的学习优先级。
+
+**成功响应（200）**：`{ "code": 200, "message": "...", "children": [ ... ] }`
+
+**失败响应**：`400`（参数错误）、`404`（树或父节点不存在）、`500`。
+
+### POST `/api/tree/<tree_name>/auto_importance`
+
+**用途**：将指定父节点下（或根下）的子节点列表交给 **DeepSeek** 排序，并复用内部逻辑写回树（需有效 API Key，支持请求级密钥，见上文）。
+
+**请求 Body**：
+
+```json
+{ "parent_path": "根/子路径" }
+```
+
+**成功响应（200）**：内部调用 **`POST /api/tree/<tree_name>/reorder`** 写回树，响应体与该接口成功时一致（含 `code`、`message`、`children` 等）。
+
+**失败响应**：`404` / `500`；未配置任何有效 DeepSeek 密钥时一般为 **`500`**，`message` 含「未配置 DeepSeek API 密钥」类说明。
 
 ---
 

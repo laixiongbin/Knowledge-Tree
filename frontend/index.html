@@ -175,7 +175,7 @@
         .control-bar button:active { transform: scale(0.97); }
         .api-key-row {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 0.75rem;
             margin-bottom: 0.75rem;
             flex-wrap: wrap;
@@ -185,10 +185,18 @@
             color: #475569;
             font-weight: 500;
             white-space: nowrap;
+            line-height: 2.2rem;
+        }
+        .api-key-input-wrap {
+            flex: 1;
+            min-width: min(100%, 280px);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         .api-key-row input {
             flex: 1;
-            min-width: 220px;
+            min-width: 0;
             padding: 0.55rem 1rem;
             border-radius: 12px;
             border: 1px solid #e2e8f0;
@@ -199,6 +207,20 @@
         .api-key-row input:focus {
             border-color: #3b82f6;
             box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+        }
+        .api-key-row .api-key-aux-btn {
+            flex-shrink: 0;
+            padding: 0.45rem 0.65rem;
+            font-size: 0.75rem;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            background: #f8fafc;
+            color: #475569;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .api-key-row .api-key-aux-btn:hover {
+            background: #e2e8f0;
         }
         .api-key-hint {
             width: 100%;
@@ -337,9 +359,13 @@
         </div>
         <div class="right-panel">
             <div class="api-key-row">
-                <label for="deepseekApiKeyInput">DeepSeek API Key</label>
-                <input type="password" id="deepseekApiKeyInput" autocomplete="off" spellcheck="false" placeholder="在此填写你的 sk-… 密钥（可选，未填则用服务端 .env）">
-                <p class="api-key-hint">密钥保存在本机浏览器 localStorage，用于「生成新树」与「扩展子节点」调用；请勿在公共电脑上使用。</p>
+                <label for="deepseekApiKeyInput">DeepSeek API 密钥</label>
+                <div class="api-key-input-wrap">
+                    <input type="password" id="deepseekApiKeyInput" autocomplete="off" spellcheck="false" placeholder="填写 sk-…（可选；不填则使用服务端环境变量）">
+                    <button type="button" class="api-key-aux-btn" id="toggleDeepseekKeyVisibility" aria-pressed="false" title="显示或隐藏密钥">显示</button>
+                    <button type="button" class="api-key-aux-btn" id="clearDeepseekKeyBtn" title="清除输入框及本机已保存的密钥">清除</button>
+                </div>
+                <p class="api-key-hint">密钥通过请求头传给本项目的后端，再由后端调用 DeepSeek；会缓存在浏览器 localStorage 便于下次打开。请勿在公共电脑或不可信网络中使用。</p>
             </div>
             <div class="control-bar">
                 <input type="text" id="keywordInput" placeholder="输入领域关键词，如 Transformer" value="注意力机制">
@@ -429,6 +455,39 @@
             } catch (e) { /* ignore */ }
             el.addEventListener("change", syncDeepseekKeyToStorage);
             el.addEventListener("blur", syncDeepseekKeyToStorage);
+            el.addEventListener("input", syncDeepseekKeyToStorage);
+
+            const visBtn = document.getElementById("toggleDeepseekKeyVisibility");
+            if (visBtn) {
+                visBtn.addEventListener("click", () => {
+                    if (el.type === "password") {
+                        el.type = "text";
+                        visBtn.textContent = "隐藏";
+                        visBtn.setAttribute("aria-pressed", "true");
+                    } else {
+                        el.type = "password";
+                        visBtn.textContent = "显示";
+                        visBtn.setAttribute("aria-pressed", "false");
+                    }
+                });
+            }
+            const clearBtn = document.getElementById("clearDeepseekKeyBtn");
+            if (clearBtn) {
+                clearBtn.addEventListener("click", () => {
+                    el.value = "";
+                    try {
+                        localStorage.removeItem(DEEPSEEK_KEY_STORAGE);
+                    } catch (e) { /* ignore */ }
+                    if (el.type !== "password") {
+                        el.type = "password";
+                        if (visBtn) {
+                            visBtn.textContent = "显示";
+                            visBtn.setAttribute("aria-pressed", "false");
+                        }
+                    }
+                    showToast("已清除密钥（本机保存已删除）", "info");
+                });
+            }
         })();
 
         function jsonHeadersWithDeepseek() {

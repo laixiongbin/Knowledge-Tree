@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import json
 import requests
 import traceback
@@ -9,15 +10,35 @@ from dotenv import load_dotenv
 import restore
 import paper_enrich
 from datetime import datetime
+from typing import Optional
 
 load_dotenv()
+if getattr(sys, "frozen", False):
+    _mp = getattr(sys, "_MEIPASS", None)
+    if _mp:
+        load_dotenv(os.path.join(_mp, ".env"))
 
 app = Flask(__name__)
-CORS(app, allow_headers=["Content-Type", "X-DeepSeek-API-Key"])
+CORS(app, allow_headers=["Content-Type", "X-DeepSeek-Api-Key"])
 
-# 项目根目录下的 frontend（与 backend 并列），用于浏览器直接打开后端地址时加载界面
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_FRONTEND_DIR = os.path.normpath(os.path.join(_PROJECT_ROOT, "frontend"))
+def _default_frontend_dir() -> str:
+    """开发：仓库根目录下的 frontend/。PyInstaller：--add-data \"frontend;frontend\" 解压到 sys._MEIPASS/frontend/。"""
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            bundled = os.path.normpath(os.path.join(meipass, "frontend"))
+            if os.path.isfile(os.path.join(bundled, "index.html")):
+                return bundled
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        next_to_exe = os.path.normpath(os.path.join(exe_dir, "frontend"))
+        if os.path.isfile(os.path.join(next_to_exe, "index.html")):
+            return next_to_exe
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.normpath(os.path.join(os.path.dirname(here), "frontend"))
+
+
+# 用于浏览器直接打开后端地址时加载界面（支持源码运行与 PyInstaller 打包）
+_FRONTEND_DIR = _default_frontend_dir()
 
 
 def _get_frontend_dir() -> str:
@@ -41,29 +62,36 @@ def _http_port() -> int:
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_ENDPOINT = os.getenv("DEEPSEEK_ENDPOINT", "https://api.deepseek.com/v1/chat/completions")
 
-_DEEPSEEK_KEY_MAX_LEN = 512
+
+def _effective_deepseek_key(client_key: Optional[str]) -> Optional[str]:
+    """优先使用前端/调用方传入的密钥，否则使用服务端环境变量。"""
+    k = (client_key or "").strip()
+    if k:
+        return k
+    env = (DEEPSEEK_API_KEY or "").strip()
+    return env if env else None
 
 
-def _deepseek_auth_headers(api_key: str) -> dict:
-    return {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
-
-def _resolve_deepseek_key() -> str | None:
-    """优先使用请求中的用户密钥（请求头或 JSON），否则使用环境变量。"""
-    h = (request.headers.get("X-DeepSeek-API-Key") or "").strip()
+def _client_deepseek_api_key_from_request(data_dict: Optional[dict] = None) -> Optional[str]:
+    """从请求头 X-DeepSeek-Api-Key 或 JSON 字段 deepseek_api_key / deepseekApiKey 读取用户密钥。"""
+    h = (request.headers.get("X-DeepSeek-Api-Key") or "").strip()
     if h:
-        return h[:_DEEPSEEK_KEY_MAX_LEN]
-    data = request.get_json(silent=True)
+        return h
+    data = data_dict
+    if data is None:
+        data = request.get_json(silent=True)
     if isinstance(data, dict):
-        for fld in ("deepseek_api_key", "deepseekApiKey"):
-            v = data.get(fld)
-            if isinstance(v, str) and v.strip():
-                return v.strip()[:_DEEPSEEK_KEY_MAX_LEN]
-    env_k = (DEEPSEEK_API_KEY or "").strip()
-    return env_k[:_DEEPSEEK_KEY_MAX_LEN] if env_k else None
+        k = (data.get("deepseek_api_key") or data.get("deepseekApiKey") or "").strip()
+        if k:
+            return k
+    return None
+
+
+def _deepseek_auth_headers(client_key: Optional[str]) -> Optional[dict]:
+    key = _effective_deepseek_key(client_key)
+    if not key:
+        return None
+    return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
 
 
 DEEPSEEK_SYSTEM_TREE = """你是知识树生成助手。请根据用户主题输出一个 JSON 对象（只输出 JSON，不要其他文字）。
@@ -181,13 +209,12 @@ def generate_fallback_tree(keyword):
         ]
     }
 
-def call_deepseek(prompt, api_key: str | None = None):
-    key = (api_key or "").strip() or (DEEPSEEK_API_KEY or "").strip()
-    if not key:
+def call_deepseek(prompt, client_api_key=None):
+    headers = _deepseek_auth_headers(client_api_key)
+    if not headers:
         print("DEEPSEEK_API_KEY 未配置")
-        return None, "未配置 DEEPSEEK_API_KEY"
+        return None, "未配置 DEEPSEEK_API_KEY（可在前端填写或设置环境变量 DEEPSEEK_API_KEY）"
 
-    headers = _deepseek_auth_headers(key)
     payload = {
         "model": "deepseek-chat",
         "messages": [
@@ -242,7 +269,8 @@ def generate_knowledge_tree():
 
 节点 name 必须具体（真实术语、算法/模型名、经典问题、具体论文题目等），禁止使用「术语分类」「术语定义」「概念层级」等空洞类目；description 须包含可核对的知识点，避免泛泛空话。"""
     
-    tree_data, err = call_deepseek(prompt, api_key=_resolve_deepseek_key())
+    client_key = _client_deepseek_api_key_from_request(data)
+    tree_data, err = call_deepseek(prompt, client_api_key=client_key)
     if tree_data is None:
         print(f" API 生成失败，使用回退树。错误: {err}")
         tree_data = generate_fallback_tree(keyword)
@@ -803,6 +831,7 @@ def _expand_extract_children(obj):
 def expand_node():
     """接收父节点信息，生成其子节点并返回"""
     data = request.get_json()
+    client_key = _client_deepseek_api_key_from_request(data)
     parent_name = data.get('parent_name', '').strip()
     parent_path = data.get('parent_path', '').strip()
     tree_name = data.get('tree_name', '').strip()
@@ -849,11 +878,10 @@ def expand_node():
         "每个 description 须含可核对的具体信息，不得空话。"
     )
 
-    api_key = _resolve_deepseek_key()
-    if not api_key:
-        return jsonify({"code": 400, "message": "未配置 DeepSeek API 密钥，请在页面填写或设置环境变量 DEEPSEEK_API_KEY"}), 400
-
     def _post_expand(user_text: str, temperature: float):
+        headers = _deepseek_auth_headers(client_key)
+        if not headers:
+            return None
         payload = {
             "model": "deepseek-chat",
             "messages": [
@@ -864,7 +892,7 @@ def expand_node():
             "max_tokens": 2048,
             "response_format": {"type": "json_object"},
         }
-        response = requests.post(DEEPSEEK_ENDPOINT, headers=_deepseek_auth_headers(api_key), json=payload, timeout=60)
+        response = requests.post(DEEPSEEK_ENDPOINT, headers=headers, json=payload, timeout=60)
         if response.status_code != 200:
             return None
         result = response.json()
@@ -1056,10 +1084,6 @@ def auto_importance(tree_name):
 
 只输出节点名称的 JSON 数组，例如：["概念A", "概念B", "论文C"]
 """
-        api_key = _resolve_deepseek_key()
-        if not api_key:
-            return jsonify({"code": 400, "message": "未配置 DeepSeek API 密钥"}), 400
-
         payload = {
             "model": "deepseek-chat",
             "messages": [
@@ -1069,8 +1093,12 @@ def auto_importance(tree_name):
             "temperature": 0.3,
             "response_format": {"type": "json_object"}
         }
-        
-        response = requests.post(DEEPSEEK_ENDPOINT, headers=_deepseek_auth_headers(api_key), json=payload, timeout=60)
+        client_key = _client_deepseek_api_key_from_request(data)
+        headers = _deepseek_auth_headers(client_key)
+        if not headers:
+            return jsonify({'code': 500, 'message': '未配置 DeepSeek API 密钥'}), 500
+
+        response = requests.post(DEEPSEEK_ENDPOINT, headers=headers, json=payload, timeout=60)
         if response.status_code != 200:
             return jsonify({'code': 500, 'message': 'AI排序失败'}), 500
         

@@ -173,52 +173,34 @@
             white-space: nowrap;
         }
         .control-bar button:active { transform: scale(0.97); }
-        .api-key-bar {
+        .api-key-row {
             display: flex;
-            flex-wrap: wrap;
             align-items: center;
-            gap: 0.5rem 0.75rem;
-            margin-bottom: 1rem;
-            padding: 0.65rem 1rem;
-            background: #f8fafc;
-            border-radius: 1rem;
-            border: 1px solid #e2e8f0;
-            font-size: 0.85rem;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
         }
-        .api-key-bar label {
+        .api-key-row label {
+            font-size: 0.85rem;
             color: #475569;
-            font-weight: 600;
+            font-weight: 500;
             white-space: nowrap;
         }
-        .api-key-bar input[type="password"],
-        .api-key-bar input[type="text"] {
+        .api-key-row input {
             flex: 1;
-            min-width: 180px;
-            padding: 0.5rem 0.75rem;
-            border: 1px solid #cbd5e1;
-            border-radius: 0.5rem;
-            font-size: 0.85rem;
-            font-family: ui-monospace, monospace;
+            min-width: 220px;
+            padding: 0.55rem 1rem;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+            background: white;
+            outline: none;
         }
-        .api-key-bar .api-key-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.4rem;
+        .api-key-row input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
         }
-        .api-key-bar .api-key-actions button {
-            padding: 0.4rem 0.75rem;
-            border-radius: 0.5rem;
-            border: none;
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            background: #64748b;
-            color: white;
-        }
-        .api-key-bar .api-key-actions button.primary {
-            background: #3b82f6;
-        }
-        .api-key-bar .api-key-hint {
+        .api-key-hint {
             width: 100%;
             margin: 0;
             font-size: 0.72rem;
@@ -354,21 +336,16 @@
             </div>
         </div>
         <div class="right-panel">
+            <div class="api-key-row">
+                <label for="deepseekApiKeyInput">DeepSeek API Key</label>
+                <input type="password" id="deepseekApiKeyInput" autocomplete="off" spellcheck="false" placeholder="在此填写你的 sk-… 密钥（可选，未填则用服务端 .env）">
+                <p class="api-key-hint">密钥保存在本机浏览器 localStorage，用于「生成新树」与「扩展子节点」调用；请勿在公共电脑上使用。</p>
+            </div>
             <div class="control-bar">
                 <input type="text" id="keywordInput" placeholder="输入领域关键词，如 Transformer" value="注意力机制">
                 <button id="generateBtn">生成新树</button>
                 <button id="saveCurrentBtn" style="background: #10b981;">保存当前树</button>
                 <button id="deleteCurrentBtn" style="background: #ef4444;">删除当前树</button>
-            </div>
-            <div class="api-key-bar" id="apiKeyBar">
-                <label for="deepseekApiKeyInput">DeepSeek API Key</label>
-                <input type="password" id="deepseekApiKeyInput" autocomplete="off" placeholder="可选：填写后调用大模型；不填则用服务端 .env" spellcheck="false">
-                <div class="api-key-actions">
-                    <button type="button" class="primary" id="saveDeepseekKeyBtn" title="写入本机浏览器，仅本地保存">保存到浏览器</button>
-                    <button type="button" id="clearDeepseekKeyBtn" title="清除输入与本地记录">清除</button>
-                    <button type="button" id="toggleDeepseekKeyVisibilityBtn" title="显示/隐藏密钥">显示</button>
-                </div>
-                <p class="api-key-hint">密钥保存在浏览器 localStorage，不会写入知识树 JSON。若服务端已配置 DEEPSEEK_API_KEY，可不填。</p>
             </div>
             <div class="tree-canvas-container" id="canvasContainer">
                 <canvas id="treeCanvas" width="900" height="500"></canvas>
@@ -434,6 +411,33 @@
             } catch (e) {}
             return "http://127.0.0.1:5050";
         })();
+
+        const DEEPSEEK_KEY_STORAGE = "knowledgeTreeDeepseekApiKey";
+        function syncDeepseekKeyToStorage() {
+            const el = document.getElementById("deepseekApiKeyInput");
+            if (!el) return;
+            try {
+                localStorage.setItem(DEEPSEEK_KEY_STORAGE, el.value.trim());
+            } catch (e) { /* ignore */ }
+        }
+        (function initDeepseekKeyField() {
+            const el = document.getElementById("deepseekApiKeyInput");
+            if (!el) return;
+            try {
+                const saved = localStorage.getItem(DEEPSEEK_KEY_STORAGE);
+                if (saved) el.value = saved;
+            } catch (e) { /* ignore */ }
+            el.addEventListener("change", syncDeepseekKeyToStorage);
+            el.addEventListener("blur", syncDeepseekKeyToStorage);
+        })();
+
+        function jsonHeadersWithDeepseek() {
+            const headers = { "Content-Type": "application/json" };
+            const el = document.getElementById("deepseekApiKeyInput");
+            const k = el ? el.value.trim() : "";
+            if (k) headers["X-DeepSeek-Api-Key"] = k;
+            return headers;
+        }
 
         let floatContainer = null;
         let contextMenuNode = null;
@@ -827,7 +831,7 @@
             mouseX = -1000;
             targetIntensity = 0;
             currentHoverIntensity = 0;
-            document.querySelector('.control-bar input').placeholder = `当前: ${currentTreeName}`;
+            document.getElementById('keywordInput').placeholder = `当前: ${currentTreeName}`;
             hideFloatButtons();
             hideContextMenu();
         }
@@ -865,6 +869,7 @@
         // ======================= 扩展节点 =======================
         async function expandNode(node) {
             if (!currentTreeData) return;
+            syncDeepseekKeyToStorage();
             showToast(`正在为 "${node.name}" 生成子节点...`, 'warning');
             let targetNode = findNodeByPath(node.id, currentTreeData);
             if (!targetNode) {
@@ -882,7 +887,7 @@
                 };
                 const response = await fetch(`${API_BASE}/expand`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: jsonHeadersWithDeepseek(),
                     body: JSON.stringify(payload)
                 });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -1117,7 +1122,7 @@
                         globalEdges = [];
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
                         document.getElementById('detailBox').innerHTML = '<div style="text-align: center; color: #94a3b8;">点击任意节点查看详细信息</div>';
-                        document.querySelector('.control-bar input').placeholder = '输入领域关键词，如 Transformer';
+                        document.getElementById('keywordInput').placeholder = '输入领域关键词，如 Transformer';
                     }
                     await loadTreesList();
                 } else {
@@ -1162,7 +1167,7 @@
                     showToast(result.message, 'success');
                     await loadTreesList();
                     currentTreeName = currentTreeData.name;
-                    document.querySelector('.control-bar input').placeholder = `当前: ${currentTreeName}`;
+                    document.getElementById('keywordInput').placeholder = `当前: ${currentTreeName}`;
                 } else {
                     showToast(result.message, 'error');
                 }
@@ -1188,7 +1193,7 @@
                     globalEdges = [];
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     document.getElementById('detailBox').innerHTML = '<div style="text-align: center; color: #94a3b8;">点击任意节点查看详细信息</div>';
-                    document.querySelector('.control-bar input').placeholder = '输入领域关键词，如 Transformer';
+                    document.getElementById('keywordInput').placeholder = '输入领域关键词，如 Transformer';
                     await loadTreesList();
                 } else {
                     showToast(result.message, 'error');
@@ -1204,13 +1209,14 @@
                 showToast('请输入关键词', 'error');
                 return;
             }
+            syncDeepseekKeyToStorage();
             const btn = document.getElementById('generateBtn');
             btn.disabled = true;
             btn.innerHTML = '生成中...';
             try {
                 const response = await fetch(`${API_BASE}/generate`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: jsonHeadersWithDeepseek(),
                     body: JSON.stringify({ keyword: keyword })
                 });
                 if (!response.ok) throw new Error('生成失败');
